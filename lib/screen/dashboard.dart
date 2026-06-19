@@ -3,7 +3,7 @@ import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/screen/sp_checkin.dart';
-import 'package:ntnc/screen/userprofile.dart';
+
 import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
@@ -110,7 +110,7 @@ class DashboardHome extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Expanded(
+                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -123,7 +123,17 @@ class DashboardHome extends StatelessWidget {
                                   letterSpacing: 0.3,
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              SizedBox(height: 1),
+
+    /// Divider line
+    Container(
+      height: 1,
+      width: 275,
+      color: Colors.white.withOpacity(0.8),
+    ),
+
+    SizedBox(height: 1),
+                              
                               Text(
                                 "राष्ट्रिय प्रकृति संरक्षण कोष",
                                 style: TextStyle(

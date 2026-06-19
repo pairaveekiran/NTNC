@@ -295,7 +295,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                     },
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(
-                                        color: primaryGreen,
+                                        color: Colors.red,
                                         width: 1.5,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -311,7 +311,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                         Text(
                                           "Check-out",
                                           style: TextStyle(
-                                            color: Color(0xff333333),
+                                            color: Colors.red,
                                             fontSize: 15,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -319,7 +319,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                         SizedBox(width: 6),
                                         Icon(
                                           Icons.arrow_outward_rounded,
-                                          color: primaryGreen,
+                                          color: Colors.red,
                                           size: 18,
                                         ),
                                       ],

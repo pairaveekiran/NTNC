@@ -56,6 +56,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
       floatingActionButton: CustomScanFAB(onPressed: _openScanner),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavigation(
+        isCheckInActive: true,
   onNotificationPressed: () {
     Navigator.push(
       context,
@@ -366,7 +367,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                                   ),
                                   DropdownMenuItem(
                                     value: "Check Out",
-                                    child: Text("Check Out"),
+                                    child: Text("Check Out", style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
                                 onChanged: (val) {
