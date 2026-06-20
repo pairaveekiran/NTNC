@@ -3,7 +3,6 @@ import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/screen/sp_checkin.dart';
-import 'package:ntnc/screen/userprofile.dart';
 import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
@@ -294,7 +293,7 @@ class DashboardHome extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xff2D6B21).withOpacity(0.35),
+                          color: const Color(0xff2D6B21).withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -320,7 +319,7 @@ class DashboardHome extends StatelessWidget {
                               height: 36,
                               width: 36,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.25),
+                                color: Colors.white.withValues(alpha: 0.25),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -408,7 +407,7 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

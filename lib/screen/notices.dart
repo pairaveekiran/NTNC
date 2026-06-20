@@ -157,7 +157,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: filters.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final filter = filters[index];
                   final isSelected = filter == selectedFilter;
@@ -233,7 +233,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                   height: 180,
                   width: 180,
                   decoration: BoxDecoration(
-                    color: const Color(0xffE6F4E8).withOpacity(0.4),
+                    color: const Color(0xffE6F4E8).withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -257,7 +257,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: primaryGreen.withOpacity(0.3),
+                        color: primaryGreen.withValues(alpha: 0.3),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -363,7 +363,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -465,6 +465,5 @@ class _Notice {
     required this.icon,
     required this.iconColor,
     required this.iconBg,
-    this.isUnread = false,
-  });
+  }) : isUnread = false;
 }

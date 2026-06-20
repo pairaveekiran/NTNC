@@ -1,6 +1,8 @@
-import 'dart:ui'; // ✅ ADD THIS for ImageFilter
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/dashboard.dart';
+import 'package:ntnc/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -10,10 +12,13 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
 
   bool obscurePassword = true;
+  bool isLoading = false;
 
   Widget leafDivider() {
     return LayoutBuilder(
@@ -39,15 +44,13 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// ─────────────────────────────────────────────
-  /// ✨ Glass-effect Input Field
-  /// ─────────────────────────────────────────────
   Widget _glassTextField({
     required TextEditingController controller,
     required String hint,
     required IconData prefixIcon,
     bool isPassword = false,
     TextInputType? keyboardType,
+    String? Function(String?)? validator,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -55,17 +58,18 @@ class _LoginPageState extends State<LoginPage> {
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.25),
+            color: Colors.white.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               width: 1.2,
             ),
           ),
-          child: TextField(
+          child: TextFormField(
             controller: controller,
             obscureText: isPassword ? obscurePassword : false,
             keyboardType: keyboardType,
+            validator: validator,
             style: const TextStyle(
               fontSize: 15,
               color: Colors.black87,
@@ -102,11 +106,52 @@ class _LoginPageState extends State<LoginPage> {
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isLoading = true);
+
+    final result = await _authService.login(
+      emailController.text.trim(),
+      passwordController.text.trim(),
+    );
+
+    setState(() => isLoading = false);
+
+    if (!mounted) return;
+
+    if (result['success']) {
+      final token = result['data']['access_token'];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('access_token', token);
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardHome()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            result['message'],
+            style: const TextStyle(color: Colors.white),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _showForgotPasswordDialog() {
@@ -298,33 +343,35 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 22),
 
                   /// ✨ Glass Login Card
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(36),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 22,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.30),
-                            borderRadius: BorderRadius.circular(36),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
-                              width: 1.4,
+                  Form(
+                    key: _formKey,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(36),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 22,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.10),
-                                blurRadius: 25,
-                                offset: const Offset(0, 10),
-                              )
-                            ],
-                          ),
-                          child: Column(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.30),
+                              borderRadius: BorderRadius.circular(36),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                width: 1.4,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 25,
+                                  offset: const Offset(0, 10),
+                                )
+                              ],
+                            ),
+                            child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               /// Username Label
@@ -333,7 +380,7 @@ class _LoginPageState extends State<LoginPage> {
                                   CircleAvatar(
                                     radius: 22,
                                     backgroundColor:
-                                        const Color(0xffE7F0E5).withOpacity(0.9),
+                                        const Color(0xffE7F0E5).withValues(alpha: 0.9),
                                     child: const Icon(
                                       Icons.person_rounded,
                                       color: Color(0xff1E6A34),
@@ -360,6 +407,15 @@ class _LoginPageState extends State<LoginPage> {
                                 hint: "Enter email",
                                 prefixIcon: Icons.mail_outline_rounded,
                                 keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Email is required';
+                                  }
+                                  if (!RegExp(r'^[\w-\.]+@[\w-]+\.[a-z]{2,}$').hasMatch(value)) {
+                                    return 'Enter a valid email';
+                                  }
+                                  return null;
+                                },
                               ),
 
                               const SizedBox(height: 16),
@@ -370,7 +426,7 @@ class _LoginPageState extends State<LoginPage> {
                                   CircleAvatar(
                                     radius: 22,
                                     backgroundColor:
-                                        const Color(0xffE7F0E5).withOpacity(0.9),
+                                        const Color(0xffE7F0E5).withValues(alpha: 0.9),
                                     child: const Icon(
                                       Icons.lock_outline_rounded,
                                       color: Color(0xff1E6A34),
@@ -397,6 +453,15 @@ class _LoginPageState extends State<LoginPage> {
                                 hint: "Enter password",
                                 prefixIcon: Icons.lock_outline_rounded,
                                 isPassword: true,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Password is required';
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
                               ),
 
                               const SizedBox(height: 22),
@@ -406,53 +471,34 @@ class _LoginPageState extends State<LoginPage> {
                                 width: double.infinity,
                                 height: 56,
                                 child: ElevatedButton(
-                                  onPressed: () {
-                                    String email =
-                                        emailController.text.trim();
-                                    String password =
-                                        passwordController.text.trim();
-
-                                    if (email.isEmpty || password.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          behavior: SnackBarBehavior.floating,
-                                          backgroundColor: Color(0xff2C631D),
-                                          content: Text(
-                                            "Please fill in all fields to continue",
-                                            style: TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const DashboardHome(),
-                                      ),
-                                    );
-                                  },
+                                  onPressed: isLoading ? null : _handleLogin,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xff2C631D),
+                                    disabledBackgroundColor: const Color(0xff2C631D).withValues(alpha: 0.6),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(28),
                                     ),
                                     elevation: 3,
                                     shadowColor: const Color(0xff2C631D)
-                                        .withOpacity(0.4),
+                                        .withValues(alpha: 0.4),
                                   ),
-                                  child: const Text(
-                                    "Login",
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                  child: isLoading
+                                      ? const SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : const Text(
+                                          "Login",
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                 ),
                               ),
 
@@ -477,7 +523,8 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                               ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

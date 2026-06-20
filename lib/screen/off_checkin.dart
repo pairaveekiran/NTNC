@@ -448,7 +448,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: primaryGreen.withOpacity(0.35),
+                          color: primaryGreen.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -487,7 +487,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                               height: 32,
                               width: 32,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.25),
+                                color: Colors.white.withValues(alpha: 0.25),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -591,7 +591,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
