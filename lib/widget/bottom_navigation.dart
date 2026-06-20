@@ -6,11 +6,15 @@ import 'package:flutter/material.dart';
 class CustomBottomNavigation extends StatelessWidget {
   final VoidCallback? onNotificationPressed;
   final VoidCallback? onCheckInPressed;
+  final bool isNotificationActive;
+  final bool isCheckInActive;
 
   const CustomBottomNavigation({
     super.key,
     this.onNotificationPressed,
     this.onCheckInPressed,
+    this.isNotificationActive = false,
+    this.isCheckInActive = false,
   });
 
   @override
@@ -29,12 +33,14 @@ class CustomBottomNavigation extends StatelessWidget {
             icon: Icons.notifications_rounded,
             label: "Notification",
             onTap: onNotificationPressed,
+            isActive: isNotificationActive,
           ),
           const SizedBox(width: 60), // Space for FAB
           _BottomNavItem(
             icon: Icons.wifi_off_rounded,
             label: "Check-in",
-            onTap: onCheckInPressed, // ✅ just use the passed callback
+            onTap: onCheckInPressed,
+            isActive: isCheckInActive,
           ),
         ],
       ),
@@ -79,15 +85,21 @@ class _BottomNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool isActive;
 
   const _BottomNavItem({
     required this.icon,
     required this.label,
     this.onTap,
+    this.isActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 🎨 Active = green, Inactive = grey
+    final Color color =
+        isActive ? const Color(0xff2D6B21) : Colors.grey.shade600;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -97,14 +109,14 @@ class _BottomNavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.black87, size: 24),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 2),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: TextStyle(
+                color: color,
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ],

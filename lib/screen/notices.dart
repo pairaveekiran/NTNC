@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ntnc/screen/off_checkin.dart';      // ✅ ADD THIS
-import 'package:ntnc/screen/qr_scanner.dart';        // ✅ ADD THIS
+import 'package:ntnc/screen/off_checkin.dart';
+import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -65,12 +65,13 @@ class _NoticesScreenState extends State<NoticesScreen> {
       floatingActionButton: CustomScanFAB(onPressed: _openScanner),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
-      /// ✅ Bottom Navigation
+      /// ✅ Bottom Navigation — Notification tab is ACTIVE (green)
       bottomNavigationBar: CustomBottomNavigation(
+        isNotificationActive: true, // ✅ THIS makes Notification GREEN
         onNotificationPressed: () {
           // Already on this screen — do nothing
         },
-        onCheckInPressed: _openCheckIn, // ✅ navigate to offline check-in
+        onCheckInPressed: _openCheckIn,
       ),
 
       body: Column(
