@@ -1,17 +1,31 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
   static const String baseUrl = 'https://mis.ntnc.org.np/api';
+  
+  // CORS proxy for web - you can use your own or a public one
+  static const String corsProxy = 'https://corsproxy.io/?';
+
+  String _getApiUrl(String endpoint) {
+    if (kIsWeb) {
+      // For web, use CORS proxy
+      return '$corsProxy$baseUrl$endpoint';
+    }
+    // For mobile/desktop, use direct URL
+    return '$baseUrl$endpoint';
+  }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      final apiUrl = _getApiUrl('/login');
       print('Attempting login for: $email');
-      print('API URL: $baseUrl/login');
+      print('API URL: $apiUrl');
       
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse(apiUrl),
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',

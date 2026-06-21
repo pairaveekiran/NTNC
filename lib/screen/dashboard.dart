@@ -3,10 +3,7 @@ import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/screen/sp_checkin.dart';
-<<<<<<< HEAD
-=======
 
->>>>>>> 009e1fe421a93f11d932c07b162667d26632b6a8
 import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
@@ -132,7 +129,7 @@ class DashboardHome extends StatelessWidget {
     Container(
       height: 1,
       width: 275,
-      color: Colors.white.withOpacity(0.8),
+      color: Colors.white.withValues(alpha: 0.8),
     ),
 
     SizedBox(height: 1),
