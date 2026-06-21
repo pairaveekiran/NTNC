@@ -15,7 +15,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
   static const lightGreen = Color(0xff5BA84A);
 
   String? scannedCode;
-  String selectedDirection = "Check In";
+  String? selectedAction; // "checkin" or "checkout"
 
   /// ─────────────────────────────────────────────
   /// Open Camera Scanner
@@ -31,6 +31,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
     if (result != null && result.isNotEmpty) {
       setState(() {
         scannedCode = result;
+        selectedAction = null; // reset action on new scan
       });
 
       if (mounted) {
@@ -46,6 +47,39 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
     }
   }
 
+  /// ─────────────────────────────────────────────
+  /// Handle Check In / Check Out
+  /// ─────────────────────────────────────────────
+  void _handleAction(String action) {
+    setState(() => selectedAction = action);
+
+    final isCheckIn = action == "checkin";
+    final label = isCheckIn ? "Checked In" : "Checked Out";
+    final color = isCheckIn ? primaryGreen : Colors.redAccent;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: color,
+        content: Row(
+          children: [
+            Icon(
+              isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "$label successfully!",
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,16 +91,16 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavigation(
         isCheckInActive: true,
-  onNotificationPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const NoticesScreen(),
+        onNotificationPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const NoticesScreen(),
+            ),
+          );
+        },
+        onCheckInPressed: () {},
       ),
-    );
-  },
-  onCheckInPressed: () {},
-),
 
       body: Column(
         children: [
@@ -201,11 +235,11 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
 
                   const SizedBox(height: 14),
 
-                  /// 📷 Scan QR Code Card → opens camera
+                  /// 📷 Scan QR Code Card
                   _buildCard(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                      onTap: _openScanner, // ✅ open camera
+                      onTap: _openScanner,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
@@ -266,23 +300,86 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Scanned Code",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xff8A8A8A),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Color(0xffE0E0E0),
-                                  width: 1,
+                          Row(
+                            children: [
+                              Icon(
+                                scannedCode != null
+                                    ? Icons.check_circle_rounded
+                                    : Icons.qr_code_rounded,
+                                size: 18,
+                                color: scannedCode != null
+                                    ? primaryGreen
+                                    : const Color(0xff9E9E9E),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "Scanned Code",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xff8A8A8A),
+                                  fontWeight: FontWeight.w500,
                                 ),
+                              ),
+                              const Spacer(),
+                              if (scannedCode != null && selectedAction != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selectedAction == "checkin"
+                                        ? const Color(0xffE6F4E8)
+                                        : const Color(0xffFDE8E8),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        selectedAction == "checkin"
+                                            ? Icons.login_rounded
+                                            : Icons.logout_rounded,
+                                        size: 12,
+                                        color: selectedAction == "checkin"
+                                            ? primaryGreen
+                                            : Colors.redAccent,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        selectedAction == "checkin"
+                                            ? "Checked In"
+                                            : "Checked Out",
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: selectedAction == "checkin"
+                                              ? primaryGreen
+                                              : Colors.redAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scannedCode != null
+                                  ? const Color(0xffF6FBF6)
+                                  : const Color(0xffFAFAFA),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: scannedCode != null
+                                    ? const Color(0xffC8E6C9)
+                                    : const Color(0xffE8E8E8),
+                                width: 1,
                               ),
                             ),
                             child: Text(
@@ -294,7 +391,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                                     : FontStyle.normal,
                                 color: scannedCode == null
                                     ? const Color(0xff9E9E9E)
-                                    : Colors.black87,
+                                    : const Color(0xff1A1A1A),
                                 fontWeight: scannedCode == null
                                     ? FontWeight.normal
                                     : FontWeight.w600,
@@ -306,212 +403,46 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  /// ✅ Check In / Check Out Buttons (only when scanned)
+                  if (scannedCode != null) ...[
+                    const SizedBox(height: 16),
 
-                  /// ⬇️ Direction Dropdown
-                  _buildCard(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Direction",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xff8A8A8A),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  "Select direction",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xff1A1A1A),
-                                  ),
-                                ),
-                              ],
-                            ),
+                    Row(
+                      children: [
+                        /// ✅ CHECK IN
+                        Expanded(
+                          child: _ActionButton(
+                            label: "Check In",
+                            icon: Icons.login_rounded,
+                            gradient: const [
+                              Color(0xff4FA044),
+                              primaryGreen,
+                            ],
+                            isSelected: selectedAction == "checkin",
+                            selectedBorderColor: const Color(0xffA5D6A7), // <--- CHANGED: Added custom light green border
+                            onTap: () => _handleAction("checkin"),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xffE6F4E8),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: selectedDirection,
-                                icon: const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: primaryGreen,
-                                ),
-                                style: const TextStyle(
-                                  color: primaryGreen,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                dropdownColor: Colors.white,
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: "Check In",
-                                    child: Text("Check In"),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: "Check Out",
-                                    child: Text("Check Out", style: TextStyle(color: Colors.red)),
-                                  ),
-                                ],
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() => selectedDirection = val);
-                                  }
-                                },
-                              ),
-                            ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        /// 🔴 CHECK OUT
+                        Expanded(
+                          child: _ActionButton(
+                            label: "Check Out",
+                            icon: Icons.logout_rounded,
+                            gradient: const [
+                              Color(0xffEF5350),
+                              Color(0xffC62828),
+                            ],
+                            isSelected: selectedAction == "checkout",
+                            selectedBorderColor: const Color(0xffEF9A9A), // <--- CHANGED: Added custom light red border
+                            onTap: () => _handleAction("checkout"),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// 🕐 Logged At
-                  _buildCard(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Logged At",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xff8A8A8A),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  "Current time will be recorded",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xff1A1A1A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 36,
-                            width: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xffE0E0E0),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.access_time_rounded,
-                              color: Color(0xff9E9E9E),
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  /// ➕ Add to Permit List Button
-                  Container(
-                    width: double.infinity,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xff4FA044), primaryGreen],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryGreen.withValues(alpha: 0.35),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          if (scannedCode == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: Colors.redAccent,
-                                content: Text("Please scan a QR code first"),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            return;
-                          }
-                          // TODO: Add to permit list
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: primaryGreen,
-                              content: Text("Added to permit list!"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              height: 32,
-                              width: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.25),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.add_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              "Add to Permit List",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  ],
 
                   const SizedBox(height: 22),
 
@@ -530,7 +461,10 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       ),
                       OutlinedButton(
                         onPressed: () {
-                          setState(() => scannedCode = null);
+                          setState(() {
+                            scannedCode = null;
+                            selectedAction = null;
+                          });
                         },
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(
@@ -560,15 +494,42 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                   const SizedBox(height: 16),
 
                   /// Empty State
-                  Center(
+                  _buildCard(
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        "No scanned permits yet",
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 56,
+                            width: 56,
+                            decoration: BoxDecoration(
+                              color: const Color(0xffF0F4F0),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.inbox_rounded,
+                              color: Color(0xffBDBDBD),
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "No scanned permits yet",
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Scan a QR code to get started",
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -599,6 +560,101 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────
+/// Action Button Widget (Check In / Check Out)
+/// ─────────────────────────────────────────────
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final List<Color> gradient;
+  final bool isSelected;
+  final Color selectedBorderColor; // <--- CHANGED: Added parameter for custom border color
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.gradient,
+    required this.isSelected,
+    required this.selectedBorderColor, // <--- CHANGED: Added parameter for custom border color
+    required this.onTap,
+  });
+
+  static const primaryGreen = Color(0xff2D6B21);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 62,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradient),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.last.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: isSelected
+            ? Border.all(color: selectedBorderColor, width: 2.5) // <--- CHANGED: Using the custom border color instead of Colors.white
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                height: 32,
+                width: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              if (isSelected) ...[
+                const SizedBox(width: 8),
+                Container(
+                  height: 20,
+                  width: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

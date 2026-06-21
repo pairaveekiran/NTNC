@@ -54,10 +54,10 @@ class AppDrawer extends StatelessWidget {
 
                     const SizedBox(height: 8),
 
-                    /// ✅ Avatar + Name + Email — entire row tappable
+                    /// Avatar + Name + Email — entire row tappable
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); // close drawer first
+                        Navigator.pop(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -164,71 +164,87 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
 
-          /// ✅ MENU GRID
+          /// ✅ MENU LIST
           Expanded(
-            child: SingleChildScrollView(
+            child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 6, bottom: 12),
-                    child: Text(
-                      "Menu",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xff666666),
-                        letterSpacing: 0.4,
-                      ),
+              children: [
+                /// Section Label
+                const Padding(
+                  padding: EdgeInsets.only(left: 6, bottom: 6),
+                  child: Text(
+                    "Account",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xff666666),
+                      letterSpacing: 0.4,
                     ),
                   ),
+                ),
 
-                  /// Grid View
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _menuItems.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.05,
+                /// Menu Items
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _menuItems.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final item = _menuItems[index];
+                    return _MenuTile(
+                      icon: item.icon,
+                      label: item.label,
+                      subtitle: item.subtitle,
+                      color: item.color,
+                      bgColor: item.bgColor,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _handleMenuTap(context, item.label);
+                      },
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                /// App Version Footer
+                const Center(
+                  child: Text(
+                    "NTNC Wildlife App • v1.0.0",
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xffAAAAAA),
+                      letterSpacing: 0.3,
                     ),
-                    itemBuilder: (context, index) {
-                      final item = _menuItems[index];
-                      return _MenuTile(
-                        icon: item.icon,
-                        label: item.label,
-                        color: item.color,
-                        bgColor: item.bgColor,
-                        onTap: () {
-                          Navigator.pop(context); // close drawer first
-                          _handleMenuTap(context, item.label);
-                        },
-                      );
-                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           /// ✅ LOGOUT BUTTON
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: Color(0xffEEEEEE),
+                  width: 1,
+                ),
+              ),
+            ),
             child: SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 onPressed: () => _showLogoutDialog(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
+                  backgroundColor: const Color(0xffFFF0F0),
                   foregroundColor: Colors.red,
                   elevation: 0,
                   side: BorderSide(
-                    color: Colors.red.withValues(alpha: 0.3),
+                    color: Colors.red.withValues(alpha: 0.25),
                     width: 1.2,
                   ),
                   shape: RoundedRectangleBorder(
@@ -237,7 +253,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.logout_rounded, size: 20),
                 label: const Text(
-                  "Logout",
+                  "Log Out",
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -256,15 +272,6 @@ class AppDrawer extends StatelessWidget {
   /// ─────────────────────────────────────────────
   void _handleMenuTap(BuildContext context, String label) {
     switch (label) {
-      case "Profile":
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const UserProfile(),
-          ),
-        );
-        break;
-
       case "Email Address":
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -276,23 +283,23 @@ class AppDrawer extends StatelessWidget {
         );
         break;
 
+      case "Gender":
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: primaryGreen,
+            content: Text("Male"),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
+
       case "Role":
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: primaryGreen,
             content: Text("Wildlife Officer"),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        break;
-
-      case "Settings":
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: primaryGreen,
-            content: Text("Settings coming soon..."),
             duration: Duration(seconds: 2),
           ),
         );
@@ -339,7 +346,10 @@ class AppDrawer extends StatelessWidget {
         content: const Text(
           "Are you sure you want to sign out of your account?",
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: Color(0xff666666)),
+          style: TextStyle(
+            fontSize: 14,
+            color: Color(0xff666666),
+          ),
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
@@ -396,6 +406,7 @@ class AppDrawer extends StatelessWidget {
 class _MenuTile extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String subtitle;
   final Color color;
   final Color bgColor;
   final VoidCallback onTap;
@@ -403,6 +414,7 @@ class _MenuTile extends StatelessWidget {
   const _MenuTile({
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.color,
     required this.bgColor,
     required this.onTap,
@@ -411,46 +423,92 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xffE6ECE6),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                height: 50,
-                width: 50,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+            child: Row(
+              children: [
+                /// Icon Box
+                Container(
+                  height: 52,
+                  width: 52,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: color, size: 25),
                 ),
-                child: Icon(icon, color: color, size: 26),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xff333333),
+
+                const SizedBox(width: 14),
+
+                /// Label + Subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xff222222),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xff7A7A7A),
+                          height: 1.35,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(width: 8),
+
+                /// Arrow
+                Container(
+                  height: 32,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffF4F6F4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xff888888),
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -459,45 +517,47 @@ class _MenuTile extends StatelessWidget {
 }
 
 /// ─────────────────────────────────────────────
-/// Menu Item Data
+/// Menu Item Data Model
 /// ─────────────────────────────────────────────
 class _MenuItem {
   final IconData icon;
   final String label;
+  final String subtitle;
   final Color color;
   final Color bgColor;
 
   const _MenuItem({
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.color,
     required this.bgColor,
   });
 }
 
+/// ─────────────────────────────────────────────
+/// Menu Items List
+/// ─────────────────────────────────────────────
 const List<_MenuItem> _menuItems = [
-  _MenuItem(
-    icon: Icons.person_rounded,
-    label: "Profile",
-    color: Color(0xff2D6B21),
-    bgColor: Color(0xffE6F4E8),
-  ),
   _MenuItem(
     icon: Icons.mail_outline_rounded,
     label: "Email Address",
+    subtitle: "john.doe@email.com",
     color: Color(0xff1976D2),
     bgColor: Color(0xffE3F0FB),
   ),
   _MenuItem(
-    icon: Icons.badge_outlined,
-    label: "Role",
-    color: Color(0xffF57C00),
-    bgColor: Color(0xffFFF2E5),
+    icon: Icons.wc_rounded,
+    label: "Gender",
+    subtitle: "Male",
+    color: Color(0xffE91E63),
+    bgColor: Color(0xffFCE4EC),
   ),
   _MenuItem(
-    icon: Icons.settings_outlined,
-    label: "Settings",
-    color: Color(0xff7B1FA2),
-    bgColor: Color(0xffF3E5F5),
+    icon: Icons.badge_outlined,
+    label: "Role",
+    subtitle: "Wildlife Officer access level",
+    color: Color(0xffF57C00),
+    bgColor: Color(0xffFFF2E5),
   ),
 ];

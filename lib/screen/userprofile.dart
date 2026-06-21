@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/login.dart';
 
@@ -81,10 +80,12 @@ class UserProfile extends StatelessWidget {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white,
-                            border: Border.all(color: Colors.white, width: 4),
+                            border:
+                                Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
+                                color:
+                                    Colors.black.withValues(alpha: 0.15),
                                 blurRadius: 15,
                                 offset: const Offset(0, 6),
                               )
@@ -107,7 +108,8 @@ class UserProfile extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: primaryGreen,
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border:
+                                  Border.all(color: Colors.white, width: 2),
                             ),
                             child: const Icon(
                               Icons.edit_rounded,
@@ -131,13 +133,13 @@ class UserProfile extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
 
-                    /// ROLE BADGE
+                    /// ROLE BADGE only
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 5,
+                        horizontal: 16,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xffE6F4E8),
@@ -153,7 +155,7 @@ class UserProfile extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
                     /// EMAIL CARD
                     Container(
@@ -169,7 +171,8 @@ class UserProfile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryGreen.withValues(alpha: 0.3),
+                            color:
+                                primaryGreen.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           )
@@ -180,7 +183,8 @@ class UserProfile extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color:
+                                  Colors.white.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -192,7 +196,8 @@ class UserProfile extends StatelessWidget {
                           const SizedBox(width: 14),
                           const Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   "Email Address",
@@ -229,7 +234,8 @@ class UserProfile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color:
+                                Colors.black.withValues(alpha: 0.05),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           )
@@ -238,20 +244,61 @@ class UserProfile extends StatelessWidget {
                       child: Column(
                         children: [
                           buildMenuItem(
-                            icon: Icons.edit_outlined,
-                            title: "Edit Profile",
-                            onTap: () {},
-                          ),
-                          buildDivider(),
-                          buildMenuItem(
                             icon: Icons.badge_outlined,
                             title: "Role",
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffE6F4E8),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                "Wildlife Officer",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: primaryGreen,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                             onTap: () {},
                           ),
                           buildDivider(),
                           buildMenuItem(
-                            icon: Icons.settings_outlined,
-                            title: "Settings",
+                            icon: Icons.wc_rounded,
+                            title: "Gender",
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xffE0F2F1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.male_rounded,
+                                    size: 16,
+                                    color: Color(0xff00796B),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "Male",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff00796B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             onTap: () {},
                           ),
                           buildDivider(),
@@ -276,16 +323,18 @@ class UserProfile extends StatelessWidget {
     );
   }
 
-  /// ✅ Menu Item (compact)
+  /// ✅ Menu Item with optional custom trailing widget
   Widget buildMenuItem({
     required IconData icon,
     required String title,
     bool isLogout = false,
+    Widget? trailing,
     required VoidCallback onTap,
   }) {
     return ListTile(
-      visualDensity: const VisualDensity(vertical: -1), // compact
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      visualDensity: const VisualDensity(vertical: -1),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: Container(
         height: 38,
         width: 38,
@@ -309,12 +358,13 @@ class UserProfile extends StatelessWidget {
           color: isLogout ? Colors.red : const Color(0xff333333),
         ),
       ),
-      trailing: isLogout
-          ? null
-          : const Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.grey,
-            ),
+      trailing: trailing ??
+          (isLogout
+              ? null
+              : const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey,
+                )),
       onTap: onTap,
     );
   }
@@ -323,7 +373,8 @@ class UserProfile extends StatelessWidget {
   Widget buildDivider() {
     return const Padding(
       padding: EdgeInsets.only(left: 70, right: 16),
-      child: Divider(thickness: 0.6, height: 1, color: Color(0xffE0E0E0)),
+      child:
+          Divider(thickness: 0.6, height: 1, color: Color(0xffE0E0E0)),
     );
   }
 
@@ -399,7 +450,8 @@ class UserProfile extends StatelessWidget {
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                  MaterialPageRoute(
+                      builder: (_) => const LoginPage()),
                   (route) => false,
                 );
               },
@@ -414,5 +466,3 @@ class UserProfile extends StatelessWidget {
     );
   }
 }
-
-
