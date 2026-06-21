@@ -2,25 +2,25 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:ntnc/services/storage_service.dart';
 
 class AuthService {
   static const String baseUrl = 'https://mis.ntnc.org.np/api';
   
-  // CORS proxy for web - you can use your own or a public one
+  // CORS proxy for web
   static const String corsProxy = 'https://corsproxy.io/?';
 
   String _getApiUrl(String endpoint) {
     if (kIsWeb) {
-      // For web, use CORS proxy
       return '$corsProxy$baseUrl$endpoint';
     }
-    // For mobile/desktop, use direct URL
     return '$baseUrl$endpoint';
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final apiUrl = _getApiUrl('/login');
+      print('Platform: ${StorageService.getPlatform()}');
       print('Attempting login for: $email');
       print('API URL: $apiUrl');
       
@@ -47,6 +47,14 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final token = data['access_token'];
+        
+        // Save token to persistent storage
+        await StorageService.saveToken(token);
+        await StorageService.saveUserEmail(email);
+        
+        print('Token saved successfully');
+        
         return {
           'success': true,
           'data': data,
@@ -101,5 +109,22 @@ class AuthService {
         'message': 'Error: ${e.toString()}',
       };
     }
+  }
+
+  // Logout method
+  Future<bool> logout() async {
+    try {
+      await StorageService.clearAll();
+      print('User logged out successfully');
+      return true;
+    } catch (e) {
+      print('Error during logout: $e');
+      return false;
+    }
+  }
+
+  // Check if user has valid session
+  Future<bool> hasValidSession() async {
+    return await StorageService.isLoggedIn();
   }
 }

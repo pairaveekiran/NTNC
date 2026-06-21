@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/login.dart';
 import 'package:ntnc/screen/userprofile.dart';
+import 'package:ntnc/services/auth_service.dart';
+import 'package:ntnc/services/storage_service.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -381,12 +383,17 @@ class AppDrawer extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                  (route) => false,
-                );
+              onPressed: () async {
+                // Clear stored data
+                await AuthService().logout();
+                
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
               },
               child: const Text(
                 "Logout",

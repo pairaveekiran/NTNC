@@ -131,10 +131,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (result['success']) {
-      final token = result['data']['access_token'];
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('access_token', token);
-
+      // Token is already saved in AuthService, navigate to dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DashboardHome()),
