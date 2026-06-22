@@ -1,14 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/login.dart';
-import 'package:ntnc/screen/userprofile.dart';
+import 'package:ntnc/screen/userprofile.dart' as screen;
 import 'package:ntnc/services/auth_service.dart';
-import 'package:ntnc/services/storage_service.dart';
+import 'package:ntnc/services/user_service.dart';
+import 'package:ntnc/models/user_profile.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  UserProfile? _profile;
+  bool _isLoading = true;
 
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final profile = await UserService().getProfile();
+      if (profile == null && mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+        return;
+      }
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +100,7 @@ class AppDrawer extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const UserProfile(),
+                            builder: (_) => const screen.UserProfile(),
                           ),
                         );
                       },
@@ -90,30 +127,46 @@ class AppDrawer extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "John Doe",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
+                          Expanded(
+                            child: _isLoading
+                                ? const Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _profile?.name ?? "User",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _profile?.email ?? "",
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
                                   ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  "john.doe@email.com",
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 6),
-                              ],
-                            ),
                           ),
                           const Icon(
                             Icons.chevron_right_rounded,
@@ -127,39 +180,40 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(height: 10),
 
                     /// Role Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          width: 1,
+                    if (!_isLoading && _profile != null && _profile!.roles.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.verified_user_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _profile!.roles[0].name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.verified_user_rounded,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            "Wildlife Officer",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -186,26 +240,27 @@ class AppDrawer extends StatelessWidget {
                 ),
 
                 /// Menu Items
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _menuItems.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final item = _menuItems[index];
-                    return _MenuTile(
-                      icon: item.icon,
-                      label: item.label,
-                      subtitle: item.subtitle,
-                      color: item.color,
-                      bgColor: item.bgColor,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _handleMenuTap(context, item.label);
-                      },
-                    );
-                  },
-                ),
+                if (!_isLoading && _profile != null)
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _buildMenuItems().length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final item = _buildMenuItems()[index];
+                      return _MenuTile(
+                        icon: item.icon,
+                        label: item.label,
+                        subtitle: item.subtitle,
+                        color: item.color,
+                        bgColor: item.bgColor,
+                        onTap: () {
+                          Navigator.pop(context);
+                          _handleMenuTap(context, item.label);
+                        },
+                      );
+                    },
+                  ),
 
                 const SizedBox(height: 24),
 
@@ -270,41 +325,83 @@ class AppDrawer extends StatelessWidget {
   }
 
   /// ─────────────────────────────────────────────
+  /// Build Menu Items
+  /// ─────────────────────────────────────────────
+  List<_MenuItem> _buildMenuItems() {
+    if (_profile == null) return [];
+
+    final genderLabel = _profile!.gender == 'M' ? 'Male' : 'Female';
+    final roleSubtitle = _profile!.roles.isNotEmpty
+        ? "${_profile!.roles[0].name} access level"
+        : "No role assigned";
+
+    return [
+      _MenuItem(
+        icon: Icons.mail_outline_rounded,
+        label: "Email Address",
+        subtitle: _profile!.email,
+        color: const Color(0xff1976D2),
+        bgColor: const Color(0xffE3F0FB),
+      ),
+      _MenuItem(
+        icon: Icons.wc_rounded,
+        label: "Gender",
+        subtitle: genderLabel,
+        color: const Color(0xffE91E63),
+        bgColor: const Color(0xffFCE4EC),
+      ),
+      _MenuItem(
+        icon: Icons.badge_outlined,
+        label: "Role",
+        subtitle: roleSubtitle,
+        color: const Color(0xffF57C00),
+        bgColor: const Color(0xffFFF2E5),
+      ),
+    ];
+  }
+
+  /// ─────────────────────────────────────────────
   /// Handle Menu Item Taps
   /// ─────────────────────────────────────────────
   void _handleMenuTap(BuildContext context, String label) {
+    if (_profile == null) return;
+
+    final genderLabel = _profile!.gender == 'M' ? 'Male' : 'Female';
+
     switch (label) {
       case "Email Address":
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: primaryGreen,
-            content: Text("john.doe@email.com"),
-            duration: Duration(seconds: 2),
+            content: Text(_profile!.email),
+            duration: const Duration(seconds: 2),
           ),
         );
         break;
 
       case "Gender":
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: primaryGreen,
-            content: Text("Male"),
-            duration: Duration(seconds: 2),
+            content: Text(genderLabel),
+            duration: const Duration(seconds: 2),
           ),
         );
         break;
 
       case "Role":
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: primaryGreen,
-            content: Text("Wildlife Officer"),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        if (_profile!.roles.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: primaryGreen,
+              content: Text(_profile!.roles[0].name),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
         break;
     }
   }
@@ -542,29 +639,3 @@ class _MenuItem {
   });
 }
 
-/// ─────────────────────────────────────────────
-/// Menu Items List
-/// ─────────────────────────────────────────────
-const List<_MenuItem> _menuItems = [
-  _MenuItem(
-    icon: Icons.mail_outline_rounded,
-    label: "Email Address",
-    subtitle: "john.doe@email.com",
-    color: Color(0xff1976D2),
-    bgColor: Color(0xffE3F0FB),
-  ),
-  _MenuItem(
-    icon: Icons.wc_rounded,
-    label: "Gender",
-    subtitle: "Male",
-    color: Color(0xffE91E63),
-    bgColor: Color(0xffFCE4EC),
-  ),
-  _MenuItem(
-    icon: Icons.badge_outlined,
-    label: "Role",
-    subtitle: "Wildlife Officer access level",
-    color: Color(0xffF57C00),
-    bgColor: Color(0xffFFF2E5),
-  ),
-];
