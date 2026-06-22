@@ -1,11 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/login.dart';
+import 'package:ntnc/services/user_service.dart';
+import 'package:ntnc/services/auth_service.dart';
+import 'package:ntnc/models/user_profile.dart' as model;
 
-class UserProfile extends StatelessWidget {
+class UserProfile extends StatefulWidget {
   const UserProfile({super.key});
+
+  @override
+  State<UserProfile> createState() => _UserProfileState();
+}
+
+class _UserProfileState extends State<UserProfile> {
+  model.UserProfile? _profile;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final profile = await UserService().getProfile();
+      if (!mounted) return;
+      
+      if (profile == null) {
+        await AuthService().logout();
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+            (route) => false,
+          );
+        }
+        return;
+      }
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +118,55 @@ class UserProfile extends StatelessWidget {
 
           /// ✅ CONTENT (overlapping profile picture)
           Expanded(
-            child: SingleChildScrollView(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: primaryGreen,
+                    ),
+                  )
+                : _errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                size: 64,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xff666666),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: _fetchProfile,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
               child: Transform.translate(
                 offset: const Offset(0, -50),
                 child: Column(
@@ -124,9 +225,9 @@ class UserProfile extends StatelessWidget {
                     const SizedBox(height: 12),
 
                     /// NAME
-                    const Text(
-                      "John Doe",
-                      style: TextStyle(
+                    Text(
+                      _profile?.name ?? "User",
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: Color(0xff1A1A1A),
@@ -136,24 +237,25 @@ class UserProfile extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     /// ROLE BADGE only
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xffE6F4E8),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        "Wildlife Officer",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: primaryGreen,
-                          fontWeight: FontWeight.w600,
+                    if (_profile != null && _profile!.roles.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffE6F4E8),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _profile!.roles[0].name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: primaryGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
 
                     const SizedBox(height: 24),
 
@@ -194,12 +296,12 @@ class UserProfile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment:
                                   CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   "Email Address",
                                   style: TextStyle(
                                     color: Colors.white70,
@@ -207,10 +309,10 @@ class UserProfile extends StatelessWidget {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  "john.doe@email.com",
-                                  style: TextStyle(
+                                  _profile?.email ?? "",
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -243,64 +345,71 @@ class UserProfile extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          buildMenuItem(
-                            icon: Icons.badge_outlined,
-                            title: "Role",
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xffE6F4E8),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                "Wildlife Officer",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: primaryGreen,
-                                  fontWeight: FontWeight.w600,
+                          if (_profile != null && _profile!.roles.isNotEmpty)
+                            buildMenuItem(
+                              icon: Icons.badge_outlined,
+                              title: "Role",
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffE6F4E8),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _profile!.roles[0].name,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: primaryGreen,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
+                              onTap: () {},
                             ),
-                            onTap: () {},
-                          ),
-                          buildDivider(),
-                          buildMenuItem(
-                            icon: Icons.wc_rounded,
-                            title: "Gender",
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xffE0F2F1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.male_rounded,
-                                    size: 16,
-                                    color: Color(0xff00796B),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    "Male",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xff00796B),
-                                      fontWeight: FontWeight.w600,
+                          if (_profile != null && _profile!.roles.isNotEmpty)
+                            buildDivider(),
+                          if (_profile != null)
+                            buildMenuItem(
+                              icon: Icons.wc_rounded,
+                              title: "Gender",
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffE0F2F1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _profile!.gender == 'M'
+                                          ? Icons.male_rounded
+                                          : Icons.female_rounded,
+                                      size: 16,
+                                      color: const Color(0xff00796B),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _profile!.gender == 'M'
+                                          ? "Male"
+                                          : "Female",
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xff00796B),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              onTap: () {},
                             ),
-                            onTap: () {},
-                          ),
                           buildDivider(),
                           buildMenuItem(
                             icon: Icons.logout_rounded,
@@ -447,13 +556,16 @@ class UserProfile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const LoginPage()),
-                  (route) => false,
-                );
+              onPressed: () async {
+                await AuthService().logout();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
               },
               child: const Text(
                 "Logout",
