@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ntnc/services/permit_service.dart';
+import 'package:ntnc/models/permit_model.dart';
+import 'package:intl/intl.dart';
+import 'package:ntnc/services/storage_service.dart';
+import 'package:ntnc/screen/login.dart';
 
 class SinglePostCheckInScreen extends StatefulWidget {
   final String? permitId;
@@ -13,6 +18,98 @@ class SinglePostCheckInScreen extends StatefulWidget {
 class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
+  
+  final PermitService _permitService = PermitService();
+  Permit? _permit;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermit();
+  }
+
+  Future<void> _loadPermit() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await _permitService.getPermit(widget.permitId ?? '');
+    
+    if (result['success']) {
+      setState(() {
+        _permit = result['permit'];
+        _isLoading = false;
+      });
+    } else {
+      if (result['statusCode'] == 401) {
+        await StorageService.clearAll();
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      } else if (result['statusCode'] == 404) {
+        setState(() {
+          _errorMessage = 'Permit not found';
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = result['message'] ?? 'Failed to load permit';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleCheckIn(int direction) async {
+    final result = await _permitService.postCheckIn(widget.permitId ?? '', direction);
+    if (result['success']) {
+      _showSuccessSnack(direction == 1 ? 'Checked-in successfully' : 'Checked-out successfully');
+      _loadPermit();
+    } else {
+      if (result['statusCode'] == 401) {
+        await StorageService.clearAll();
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      } else {
+        _showSuccessSnack('Failed to process check-in');
+      }
+    }
+  }
+
+  String _calculateAge(String dob) {
+    try {
+      final birthDate = DateTime.parse(dob);
+      final today = DateTime.now();
+      int age = today.year - birthDate.year;
+      if (today.month < birthDate.month || (today.month == birthDate.month && today.day < birthDate.day)) {
+        age--;
+      }
+      return '$age yrs';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  String _formatDate(String date) {
+    try {
+      final dt = DateTime.parse(date);
+      return DateFormat('dd-MMM-yyyy').format(dt);
+    } catch (e) {
+      return date;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +176,31 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
 
           /// ✅ CONTENT
           Expanded(
-            child: SingleChildScrollView(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: primaryGreen))
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _errorMessage!,
+                              style: const TextStyle(fontSize: 16, color: Colors.red),
+                            ),
+                            if (_errorMessage != 'Permit not found') ...[
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadPermit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryGreen,
+                                ),
+                                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +232,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                               ),
                             ),
                             child: Text(
-                              widget.permitId ?? "ONNqEshLD10",
+                              _permit?.code ?? widget.permitId ?? '',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -162,9 +283,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       color: const Color(0xffE6F4E8),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Text(
-                                      "Indian",
-                                      style: TextStyle(
+                                    child: Text(
+                                      _permit?.country.nationality ?? '',
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         color: primaryGreen,
                                         fontWeight: FontWeight.w600,
@@ -181,9 +302,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      "Sonu Kumar",
-                                      style: TextStyle(
+                                    Text(
+                                      "${_permit?.firstName ?? ''} ${_permit?.midName ?? ''} ${_permit?.lastName ?? ''}".trim(),
+                                      style: const TextStyle(
                                         fontSize: 19,
                                         fontWeight: FontWeight.w800,
                                         color: Color(0xff1A1A1A),
@@ -191,7 +312,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      "27 yrs • Male • Indian",
+                                      "${_permit != null ? _calculateAge(_permit!.dob) : ''} • ${_permit?.gender == 'M' ? 'Male' : _permit?.gender == 'F' ? 'Female' : ''} • ${_permit?.country.nationality ?? ''}",
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade600,
@@ -203,11 +324,11 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       color: Color(0xffE0E0E0),
                                     ),
                                     const SizedBox(height: 8),
-                                    _infoRow("Passport No", "244053439754"),
+                                    _infoRow("Passport No", _permit?.passport ?? ''),
                                     const SizedBox(height: 6),
-                                    _infoRow("Receipt No", "ONL/ACAP-325775"),
+                                    _infoRow("Receipt No", _permit?.receipt ?? ''),
                                     const SizedBox(height: 6),
-                                    _infoRow("Permit Code", "ONNqEshLD10"),
+                                    _infoRow("Permit Code", _permit?.code ?? ''),
                                   ],
                                 ),
                               ),
@@ -217,28 +338,29 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                           const SizedBox(height: 14),
 
                           /// Trekking Region
-                          Row(
-                            children: [
-                              const Text(
-                                "Trekking Region",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xff8A8A8A),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              const Expanded(
-                                child: Text(
-                                  "Jomsom Muktinath Trek",
+                          if (_permit?.treks.isNotEmpty ?? false)
+                            Row(
+                              children: [
+                                const Text(
+                                  "Trekking Region",
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xff1A1A1A),
+                                    fontSize: 12,
+                                    color: Color(0xff8A8A8A),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text(
+                                    _permit?.treks[0].trek.name ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xff1A1A1A),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
 
                           const SizedBox(height: 14),
 
@@ -249,10 +371,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      _showSuccessSnack(
-                                          "Checked-in successfully");
-                                    },
+                                    onPressed: () => _handleCheckIn(1),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryGreen,
                                       shape: RoundedRectangleBorder(
@@ -289,10 +408,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: OutlinedButton(
-                                    onPressed: () {
-                                      _showSuccessSnack(
-                                          "Checked-out successfully");
-                                    },
+                                    onPressed: () => _handleCheckIn(0),
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(
                                         color: Colors.red,
@@ -376,9 +492,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                   children: [
                                     const _Dot(color: Color(0xff2E7D32)),
                                     const SizedBox(width: 6),
-                                    const Text(
-                                      "Beni",
-                                      style: TextStyle(
+                                    Text(
+                                      _permit?.getEntryPost.address ?? '',
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 13,
                                         color: Color(0xff1A1A1A),
@@ -395,9 +511,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                     const SizedBox(width: 8),
                                     const _Dot(color: Color(0xffE53935)),
                                     const SizedBox(width: 6),
-                                    const Text(
-                                      "Beni",
-                                      style: TextStyle(
+                                    Text(
+                                      _permit?.getExitPost.address ?? '',
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 13,
                                         color: Color(0xff1A1A1A),
@@ -410,13 +526,12 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                           ),
 
                           const SizedBox(height: 12),
-                          _detailRow("Validity of Permit",
-                              "09-Jun-2026 to 24-Jun-2026"),
-                          const SizedBox(height: 12),
-                          _detailRow("Destination", "Muktinath"),
-                          const SizedBox(height: 12),
                           _detailRow(
-                              "Trek Route", "Beni - Jomsom - Muktinath"),
+                            "Validity of Permit",
+                            _permit != null
+                                ? "${_formatDate(_permit!.validFrom)} to ${_formatDate(_permit!.validTo)}"
+                                : '',
+                          ),
                         ],
                       ),
                     ),
@@ -424,86 +539,39 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
 
                   const SizedBox(height: 14),
 
-                  /// 🏢 Issuing Authority + Travel Agency
+                  /// 🏢 Issuing Authority
                   _buildCard(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "Permit Issuing Authority",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: primaryGreen,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "Online, Online",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xff333333),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Tel: ---",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Permit Issuing Authority",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: primaryGreen,
                             ),
-                            Container(
-                              width: 1,
-                              color: const Color(0xffE0E0E0),
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _permit?.getIssuingOffice.name ?? '',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xff333333),
+                              fontWeight: FontWeight.w500,
                             ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "Travel Agency",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: primaryGreen,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "Nebira Journeys, Pokhara",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xff333333),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Tel: 9851064185",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Tel: ${_permit?.getIssuingOffice.phone ?? '---'}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -533,8 +601,8 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                           const SizedBox(height: 8),
 
                           /// Table Header
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               Expanded(
                                 flex: 3,
                                 child: Text(
@@ -576,17 +644,16 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
 
                           const SizedBox(height: 10),
 
-                          _checkPostRow(
-                            time: "2026-06-09 17:13",
-                            post: "Jomsom",
-                            isIn: true,
-                            highlighted: true,
-                          ),
-                          _checkPostRow(
-                            time: "2026-06-17 16:35",
-                            post: "EPC, Pokhara",
-                            isIn: false,
-                          ),
+                          ...(_permit?.checkIns ?? []).asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final checkIn = entry.value;
+                            return _checkPostRow(
+                              time: checkIn.loggedAt,
+                              post: checkIn.checkPost.name,
+                              isIn: checkIn.direction == 1,
+                              highlighted: index == 0,
+                            );
+                          }),
                         ],
                       ),
                     ),
