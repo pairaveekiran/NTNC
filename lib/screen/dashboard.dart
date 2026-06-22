@@ -8,8 +8,14 @@ import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 
-class DashboardHome extends StatelessWidget {
+class DashboardHome extends StatefulWidget {
   const DashboardHome({super.key});
+
+  @override
+  State<DashboardHome> createState() => _DashboardHomeState();
+}
+
+class _DashboardHomeState extends State<DashboardHome> {
 
   @override
   Widget build(BuildContext context) {
@@ -22,13 +28,22 @@ class DashboardHome extends StatelessWidget {
 
       /// ✅ CENTER SCAN BUTTON
       floatingActionButton: CustomScanFAB(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final scannedCode = await Navigator.push<String>(
             context,
             MaterialPageRoute(
               builder: (context) => const QRScannerScreen(),
             ),
           );
+
+          if (scannedCode != null && scannedCode.isNotEmpty && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SinglePostCheckInScreen(permitId: scannedCode),
+              ),
+            );
+          }
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
