@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OfflineScanScreen extends StatefulWidget {
   const OfflineScanScreen({super.key});
@@ -10,12 +12,92 @@ class OfflineScanScreen extends StatefulWidget {
   State<OfflineScanScreen> createState() => _OfflineScanScreenState();
 }
 
+/// ─────────────────────────────────────────────
+/// Model for a cached scanned permit record
+/// ✅ ADDED: toJson / fromJson for persistence
+/// ─────────────────────────────────────────────
+class ScannedPermitRecord {
+  final String code;
+  final String action; // "checkin" or "checkout"
+  final DateTime timestamp;
+
+  ScannedPermitRecord({
+    required this.code,
+    required this.action,
+    required this.timestamp,
+  });
+
+  /// Convert to JSON-compatible map
+  Map<String, dynamic> toJson() => {
+        'code': code,
+        'action': action,
+        'timestamp': timestamp.toIso8601String(),
+      };
+
+  /// Construct from JSON map
+  factory ScannedPermitRecord.fromJson(Map<String, dynamic> json) {
+    return ScannedPermitRecord(
+      code: json['code'] as String,
+      action: json['action'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+    );
+  }
+}
+
 class _OfflineScanScreenState extends State<OfflineScanScreen> {
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
 
+  /// ✅ ADDED: SharedPreferences key
+  static const String _storageKey = 'cached_scanned_permits';
+
   String? scannedCode;
   String? selectedAction; // "checkin" or "checkout"
+
+  /// ✅ Cached list of scanned permit records
+  final List<ScannedPermitRecord> _scannedPermits = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadScannedPermits(); // ✅ load cached records on screen open
+  }
+
+  /// ─────────────────────────────────────────────
+  /// ✅ ADDED: Load saved records from SharedPreferences
+  /// ─────────────────────────────────────────────
+  Future<void> _loadScannedPermits() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonString = prefs.getString(_storageKey);
+
+    if (jsonString != null && jsonString.isNotEmpty) {
+      try {
+        final List<dynamic> decoded = json.decode(jsonString);
+        final List<ScannedPermitRecord> loaded = decoded
+            .map((e) =>
+                ScannedPermitRecord.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+        setState(() {
+          _scannedPermits
+            ..clear()
+            ..addAll(loaded);
+        });
+      } catch (e) {
+        debugPrint('Error loading scanned permits: $e');
+      }
+    }
+  }
+
+  /// ─────────────────────────────────────────────
+  /// ✅ ADDED: Save current records to SharedPreferences
+  /// ─────────────────────────────────────────────
+  Future<void> _saveScannedPermits() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String jsonString =
+        json.encode(_scannedPermits.map((e) => e.toJson()).toList());
+    await prefs.setString(_storageKey, jsonString);
+  }
 
   /// ─────────────────────────────────────────────
   /// Open Camera Scanner
@@ -31,50 +113,75 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
     if (result != null && result.isNotEmpty) {
       setState(() {
         scannedCode = result;
-        selectedAction = null; // reset action on new scan
+        selectedAction = null;
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: primaryGreen,
-            content: Text("Scanned: $result"),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
     }
   }
 
   /// ─────────────────────────────────────────────
   /// Handle Check In / Check Out
+  /// After action, scanned code clears so user can scan again
+  /// ✅ Now also persists to SharedPreferences
   /// ─────────────────────────────────────────────
   void _handleAction(String action) {
-    setState(() => selectedAction = action);
+    if (scannedCode == null) return;
 
-    final isCheckIn = action == "checkin";
-    final label = isCheckIn ? "Checked In" : "Checked Out";
-    final color = isCheckIn ? primaryGreen : Colors.redAccent;
+    setState(() {
+      _scannedPermits.insert(
+        0,
+        ScannedPermitRecord(
+          code: scannedCode!,
+          action: action,
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      scannedCode = null;
+      selectedAction = null;
+    });
+
+    _saveScannedPermits(); // ✅ persist after change
+  }
+
+  /// ✅ Clear only the most recent record from the table
+  void _clearRecords() {
+    if (_scannedPermits.isEmpty) return;
+
+    setState(() {
+      _scannedPermits.removeAt(0);
+    });
+
+    _saveScannedPermits(); // ✅ persist after change
+  }
+
+  /// ✅ Sync records (clears entire cache after syncing)
+  void _syncRecords() {
+    if (_scannedPermits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffF39C12),
+          content: Text("No records to sync"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final count = _scannedPermits.length;
+    setState(() {
+      scannedCode = null;
+      selectedAction = null;
+      _scannedPermits.clear();
+    });
+
+    _saveScannedPermits(); // ✅ persist empty list after sync
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: color,
-        content: Row(
-          children: [
-            Icon(
-              isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              "$label successfully!",
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+        backgroundColor: primaryGreen,
+        content: Text("$count record(s) synced successfully!"),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -158,9 +265,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {
-                        // TODO: Refresh / sync action
-                      },
+                      onPressed: _syncRecords,
                       icon: const Icon(
                         Icons.sync_rounded,
                         color: Colors.white,
@@ -409,7 +514,6 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
 
                     Row(
                       children: [
-                        /// ✅ CHECK IN
                         Expanded(
                           child: _ActionButton(
                             label: "Check In",
@@ -419,14 +523,11 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                               primaryGreen,
                             ],
                             isSelected: selectedAction == "checkin",
-                            selectedBorderColor: const Color(0xffA5D6A7), // <--- CHANGED: Added custom light green border
+                            selectedBorderColor: const Color(0xffA5D6A7),
                             onTap: () => _handleAction("checkin"),
                           ),
                         ),
-
                         const SizedBox(width: 12),
-
-                        /// 🔴 CHECK OUT
                         Expanded(
                           child: _ActionButton(
                             label: "Check Out",
@@ -436,7 +537,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                               Color(0xffC62828),
                             ],
                             isSelected: selectedAction == "checkout",
-                            selectedBorderColor: const Color(0xffEF9A9A), // <--- CHANGED: Added custom light red border
+                            selectedBorderColor: const Color(0xffEF9A9A),
                             onTap: () => _handleAction("checkout"),
                           ),
                         ),
@@ -451,21 +552,41 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        "Your Scanned Permits",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xff1A1A1A),
-                        ),
+                      Row(
+                        children: [
+                          const Text(
+                            "Your Scanned Permits",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xff1A1A1A),
+                            ),
+                          ),
+                          if (_scannedPermits.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryGreen,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "${_scannedPermits.length}",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            scannedCode = null;
-                            selectedAction = null;
-                          });
-                        },
+                        onPressed: _clearRecords,
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(
                             color: Color(0xffE57373),
@@ -493,49 +614,211 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
 
                   const SizedBox(height: 16),
 
-                  /// Empty State
-                  _buildCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 56,
-                            width: 56,
-                            decoration: BoxDecoration(
-                              color: const Color(0xffF0F4F0),
-                              borderRadius: BorderRadius.circular(16),
+                  /// ✅ Show TABLE OR empty state
+                  if (_scannedPermits.isEmpty)
+                    _buildCard(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 56,
+                              width: 56,
+                              decoration: BoxDecoration(
+                                color: const Color(0xffF0F4F0),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.inbox_rounded,
+                                color: Color(0xffBDBDBD),
+                                size: 30,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.inbox_rounded,
-                              color: Color(0xffBDBDBD),
-                              size: 30,
+                            const SizedBox(height: 12),
+                            Text(
+                              "No scanned permits yet",
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            "No scanned permits yet",
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 4),
+                            Text(
+                              "Scan a QR code to get started",
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Scan a QR code to get started",
-                            style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    )
+                  else
+                    _buildPermitTable(),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ─────────────────────────────────────────────
+  /// ✅ Build Scanned Permits Table (ID + Direction)
+  /// ─────────────────────────────────────────────
+  Widget _buildPermitTable() {
+    return _buildCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          /// ✅ Table Header
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                const Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Text(
+                      "ID",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xff666666),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: Color(0xffEEEEEE),
+                ),
+                const Expanded(
+                  flex: 1,
+                  child: Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Text(
+                      "DIRECTION",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xff666666),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: Color(0xffEEEEEE),
+          ),
+
+          /// ✅ Table Rows
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: _scannedPermits.length,
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              thickness: 0.8,
+              color: Color(0xffF0F0F0),
+            ),
+            itemBuilder: (context, index) {
+              final record = _scannedPermits[index];
+              final isCheckIn = record.action == "checkin";
+
+              final actionColor =
+                  isCheckIn ? primaryGreen : const Color(0xffC62828);
+              final actionBg = isCheckIn
+                  ? const Color(0xffE6F4E8)
+                  : const Color(0xffFDE8E8);
+
+              return IntrinsicHeight(
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          record.code,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff1A1A1A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: Color(0xffF0F0F0),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 110,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: actionBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  isCheckIn
+                                      ? Icons.login_rounded
+                                      : Icons.logout_rounded,
+                                  size: 13,
+                                  color: actionColor,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  isCheckIn ? "Check In" : "Check Out",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: actionColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -572,7 +855,7 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final List<Color> gradient;
   final bool isSelected;
-  final Color selectedBorderColor; // <--- CHANGED: Added parameter for custom border color
+  final Color selectedBorderColor;
   final VoidCallback onTap;
 
   const _ActionButton({
@@ -580,7 +863,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.gradient,
     required this.isSelected,
-    required this.selectedBorderColor, // <--- CHANGED: Added parameter for custom border color
+    required this.selectedBorderColor,
     required this.onTap,
   });
 
@@ -601,7 +884,7 @@ class _ActionButton extends StatelessWidget {
           ),
         ],
         border: isSelected
-            ? Border.all(color: selectedBorderColor, width: 2.5) // <--- CHANGED: Using the custom border color instead of Colors.white
+            ? Border.all(color: selectedBorderColor, width: 2.5)
             : null,
       ),
       child: Material(
