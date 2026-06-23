@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:ntnc/services/storage_service.dart';
 
 class AuthService {
@@ -20,9 +21,9 @@ class AuthService {
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final apiUrl = _getApiUrl('/login');
-      print('Platform: ${StorageService.getPlatform()}');
-      print('Attempting login for: $email');
-      print('API URL: $apiUrl');
+      debugPrint('Platform: ${StorageService.getPlatform()}');
+      debugPrint('Attempting login for: $email');
+      debugPrint('API URL: $apiUrl');
       
       final response = await http.post(
         Uri.parse(apiUrl),
@@ -42,8 +43,8 @@ class AuthService {
         },
       );
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -53,7 +54,7 @@ class AuthService {
         await StorageService.saveToken(token);
         await StorageService.saveUserEmail(email);
         
-        print('Token saved successfully');
+        debugPrint('Token saved successfully');
         
         return {
           'success': true,
@@ -79,31 +80,31 @@ class AuthService {
         };
       }
     } on SocketException catch (e) {
-      print('SocketException: $e');
+      debugPrint('SocketException: $e');
       return {
         'success': false,
         'message': 'No internet connection. Please check your network.',
       };
     } on http.ClientException catch (e) {
-      print('ClientException: $e');
+      debugPrint('ClientException: $e');
       return {
         'success': false,
         'message': 'Connection failed. Please check your internet connection and try again.',
       };
     } on HttpException catch (e) {
-      print('HttpException: $e');
+      debugPrint('HttpException: $e');
       return {
         'success': false,
         'message': 'Network error. Please try again.',
       };
     } on FormatException catch (e) {
-      print('FormatException: $e');
+      debugPrint('FormatException: $e');
       return {
         'success': false,
         'message': 'Invalid server response.',
       };
     } catch (e) {
-      print('Unexpected error: $e');
+      debugPrint('Unexpected error: $e');
       return {
         'success': false,
         'message': 'Error: ${e.toString()}',
@@ -115,10 +116,10 @@ class AuthService {
   Future<bool> logout() async {
     try {
       await StorageService.clearAll();
-      print('User logged out successfully');
+      debugPrint('User logged out successfully');
       return true;
     } catch (e) {
-      print('Error during logout: $e');
+      debugPrint('Error during logout: $e');
       return false;
     }
   }

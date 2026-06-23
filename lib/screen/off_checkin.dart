@@ -1,7 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:ntnc/screen/login.dart';
 import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
+import 'package:ntnc/services/bulk_checkin_service.dart';
+import 'package:ntnc/services/storage_service.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,28 +23,36 @@ class OfflineScanScreen extends StatefulWidget {
 /// ─────────────────────────────────────────────
 class ScannedPermitRecord {
   final String code;
-  final String action; // "checkin" or "checkout"
+  final int direction; // 1 = Check In, 0 = Check Out
   final DateTime timestamp;
+  String syncStatus; // "pending", "success", "failed"
+  String? errorMessage;
 
   ScannedPermitRecord({
     required this.code,
-    required this.action,
+    required this.direction,
     required this.timestamp,
+    this.syncStatus = "pending",
+    this.errorMessage,
   });
 
   /// Convert to JSON-compatible map
   Map<String, dynamic> toJson() => {
         'code': code,
-        'action': action,
+        'direction': direction,
         'timestamp': timestamp.toIso8601String(),
+        'syncStatus': syncStatus,
+        'errorMessage': errorMessage,
       };
 
   /// Construct from JSON map
   factory ScannedPermitRecord.fromJson(Map<String, dynamic> json) {
     return ScannedPermitRecord(
       code: json['code'] as String,
-      action: json['action'] as String,
+      direction: json['direction'] as int,
       timestamp: DateTime.parse(json['timestamp'] as String),
+      syncStatus: json['syncStatus'] as String? ?? "pending",
+      errorMessage: json['errorMessage'] as String?,
     );
   }
 }
@@ -53,9 +66,14 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
 
   String? scannedCode;
   String? selectedAction; // "checkin" or "checkout"
+  DateTime? _scannedAt; // timestamp captured the moment QR is scanned
 
   /// ✅ Cached list of scanned permit records
   final List<ScannedPermitRecord> _scannedPermits = [];
+  bool _isSyncing = false;
+
+  bool _isSelectionMode = false;
+  final Set<int> _selectedIndexes = {};
 
   @override
   void initState() {
@@ -111,8 +129,10 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
+      final capturedAt = DateTime.now(); // ✅ captured at scan moment
       setState(() {
         scannedCode = result;
+        _scannedAt = capturedAt;
         selectedAction = null;
       });
     }
@@ -123,68 +143,265 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
   /// After action, scanned code clears so user can scan again
   /// ✅ Now also persists to SharedPreferences
   /// ─────────────────────────────────────────────
-  void _handleAction(String action) {
+  void _handleAction(int direction) {
     if (scannedCode == null) return;
+
+    final timestamp = _scannedAt ?? DateTime.now(); // fallback just in case
 
     setState(() {
       _scannedPermits.insert(
         0,
         ScannedPermitRecord(
           code: scannedCode!,
-          action: action,
-          timestamp: DateTime.now(),
+          direction: direction,
+          timestamp: timestamp, // ✅ uses scan time, not button tap time
         ),
       );
 
       scannedCode = null;
+      _scannedAt = null; // ✅ reset after use
       selectedAction = null;
     });
 
     _saveScannedPermits(); // ✅ persist after change
   }
 
-  /// ✅ Clear only the most recent record from the table
-  void _clearRecords() {
-    if (_scannedPermits.isEmpty) return;
-
+  void _toggleSelectionMode() {
     setState(() {
-      _scannedPermits.removeAt(0);
+      _isSelectionMode = !_isSelectionMode;
+      _selectedIndexes.clear();
     });
-
-    _saveScannedPermits(); // ✅ persist after change
   }
 
-  /// ✅ Sync records (clears entire cache after syncing)
-  void _syncRecords() {
-    if (_scannedPermits.isEmpty) {
+  void _deleteSelectedRecords() {
+    if (_selectedIndexes.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: Color(0xffF39C12),
-          content: Text("No records to sync"),
+          content: Text("Select at least one record to delete"),
           duration: Duration(seconds: 2),
         ),
       );
       return;
     }
 
-    final count = _scannedPermits.length;
-    setState(() {
-      scannedCode = null;
-      selectedAction = null;
-      _scannedPermits.clear();
-    });
-
-    _saveScannedPermits(); // ✅ persist empty list after sync
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: primaryGreen,
-        content: Text("$count record(s) synced successfully!"),
-        duration: const Duration(seconds: 2),
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(
+              Icons.delete_outline_rounded,
+              color: Color(0xffC62828),
+              size: 22,
+            ),
+            SizedBox(width: 8),
+            Text(
+              "Remove Selected",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff1A1A1A),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          "Are you sure you want to remove ${_selectedIndexes.length} selected record(s)? This cannot be undone.",
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xff555555),
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xffDDDDDD)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: Color(0xff555555)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final toRemove = _selectedIndexes.toList()
+                ..sort((a, b) => b.compareTo(a));
+              for (final i in toRemove) {
+                _scannedPermits.removeAt(i);
+              }
+              _isSelectionMode = false;
+              _selectedIndexes.clear();
+              setState(() {});
+              await _saveScannedPermits();
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xffC62828),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              minimumSize: const Size(0, 44),
+            ),
+            child: const Text(
+              "Remove",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  /// ✅ Sync records with API
+  Future<void> _syncRecords() async {
+    final pending = _scannedPermits.where((r) => r.syncStatus == "pending").toList();
+
+    if (pending.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffF39C12),
+          content: Text("No pending records to sync"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // ✅ TASK 1: Debug token before sending
+    final token = await StorageService.getToken();
+    debugPrint('✅ Token from StorageService: $token');
+
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffC62828),
+          content: Text("No token found. Please log in again."),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      final service = BulkCheckInService();
+      final result = await service.postBulkCheckIns(pending, token);
+
+      final validCodes = List<String>.from(result['valid'] ?? []);
+      final invalidList = List<dynamic>.from(result['invalid'] ?? []);
+
+      for (final code in validCodes) {
+        final record = _scannedPermits.firstWhere((r) => r.code == code);
+        record.syncStatus = "success";
+      }
+
+      for (final item in invalidList) {
+        final code = item['code'] as String;
+        final message = item['message'] as String;
+        final record = _scannedPermits.firstWhere((r) => r.code == code);
+        record.syncStatus = "failed";
+        record.errorMessage = message;
+      }
+
+      await _saveScannedPermits();
+
+      setState(() {
+        _scannedPermits.removeWhere((r) => r.syncStatus == "success");
+      });
+
+      await _saveScannedPermits();
+
+      final failedCount = invalidList.length;
+      final syncedCount = validCodes.length;
+
+      if (!mounted) return;
+      
+      if (failedCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: primaryGreen,
+            content: Text("All $syncedCount records synced successfully!"),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xffF39C12),
+            content: Text("Synced $syncedCount. $failedCount failed — check the list."),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } on UnauthorizedException {
+      // ✅ TASK 3: Show message first before redirect
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffC62828),
+          content: Text("Session expired. Please log in again."),
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      await StorageService.clearAll();
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    } on SocketException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffC62828),
+          content: Text("Sync failed. Check your connection."),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xffC62828),
+          content: Text("Sync failed: ${e.toString()}"),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -265,12 +482,21 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: _syncRecords,
-                      icon: const Icon(
-                        Icons.sync_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
+                      onPressed: _isSyncing ? null : _syncRecords,
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.sync_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                     ),
                   ],
                 ),
@@ -524,7 +750,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                             ],
                             isSelected: selectedAction == "checkin",
                             selectedBorderColor: const Color(0xffA5D6A7),
-                            onTap: () => _handleAction("checkin"),
+                            onTap: () => _handleAction(1),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -538,7 +764,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                             ],
                             isSelected: selectedAction == "checkout",
                             selectedBorderColor: const Color(0xffEF9A9A),
-                            onTap: () => _handleAction("checkout"),
+                            onTap: () => _handleAction(0),
                           ),
                         ),
                       ],
@@ -585,34 +811,59 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                           ],
                         ],
                       ),
-                      OutlinedButton(
-                        onPressed: _clearRecords,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                            color: Color(0xffE57373),
-                            width: 1.2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 8,
-                          ),
-                        ),
-                        child: const Text(
-                          "Clear Records",
-                          style: TextStyle(
-                            color: Color(0xffE57373),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      IconButton(
+                        onPressed: _scannedPermits.isEmpty
+                            ? null
+                            : (_isSelectionMode
+                                ? _deleteSelectedRecords
+                                : _toggleSelectionMode),
+                        icon: Icon(
+                          _isSelectionMode
+                              ? Icons.delete_sweep_rounded
+                              : Icons.delete_outline_rounded,
+                          color: _scannedPermits.isEmpty
+                              ? const Color(0xffCCCCCC)
+                              : const Color(0xffC62828),
+                          size: 24,
                         ),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 16),
+
+                  /// ✅ Cancel bar when in selection mode
+                  if (_isSelectionMode)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "${_selectedIndexes.length} selected",
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xff2D6B21),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _toggleSelectionMode,
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(
+                                color: Color(0xff555555),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   /// ✅ Show TABLE OR empty state
                   if (_scannedPermits.isEmpty)
@@ -739,7 +990,9 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
             ),
             itemBuilder: (context, index) {
               final record = _scannedPermits[index];
-              final isCheckIn = record.action == "checkin";
+              final isCheckIn = record.direction == 1;
+              final isFailed = record.syncStatus == "failed";
+              final isSelected = _selectedIndexes.contains(index);
 
               final actionColor =
                   isCheckIn ? primaryGreen : const Color(0xffC62828);
@@ -747,75 +1000,179 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                   ? const Color(0xffE6F4E8)
                   : const Color(0xffFDE8E8);
 
-              return IntrinsicHeight(
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          record.code,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xff1A1A1A),
+              return GestureDetector(
+                onTap: () {
+                  if (_isSelectionMode) {
+                    setState(() {
+                      if (_selectedIndexes.contains(index)) {
+                        _selectedIndexes.remove(index);
+                      } else {
+                        _selectedIndexes.add(index);
+                      }
+                    });
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xffE8F5E9)
+                        : Colors.transparent,
+                    border: isSelected
+                        ? const Border(
+                            left: BorderSide(
+                              color: Color(0xff2D6B21),
+                              width: 3,
+                            ),
+                          )
+                        : null,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        if (_isSelectionMode)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              isSelected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              color: isSelected
+                                  ? const Color(0xff2D6B21)
+                                  : const Color(0xffCCCCCC),
+                              size: 20,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    const VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: Color(0xffF0F0F0),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 110,
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              vertical: 6,
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                            decoration: BoxDecoration(
-                              color: actionBg,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  isCheckIn
-                                      ? Icons.login_rounded
-                                      : Icons.logout_rounded,
-                                  size: 13,
-                                  color: actionColor,
-                                ),
-                                const SizedBox(width: 5),
                                 Text(
-                                  isCheckIn ? "Check In" : "Check Out",
-                                  style: TextStyle(
+                                  record.code,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xff1A1A1A),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (isFailed && record.errorMessage != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    record.errorMessage!,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xffC62828),
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('yyyy-MM-dd HH:mm').format(record.timestamp),
+                                  style: const TextStyle(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: actionColor,
+                                    color: Color(0xff999999),
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      ),
+                        const VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: Color(0xffF0F0F0),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 110,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: actionBg,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          isCheckIn
+                                              ? Icons.login_rounded
+                                              : Icons.logout_rounded,
+                                          size: 13,
+                                          color: actionColor,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          isCheckIn ? "Check In" : "Check Out",
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: actionColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isFailed) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xffFDE8E8),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.error_outline,
+                                            size: 11,
+                                            color: Color(0xffC62828),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            "Failed",
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xffC62828),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -866,8 +1223,6 @@ class _ActionButton extends StatelessWidget {
     required this.selectedBorderColor,
     required this.onTap,
   });
-
-  //static const primaryGreen = Color(0xff2D6B21);
 
   @override
   Widget build(BuildContext context) {
