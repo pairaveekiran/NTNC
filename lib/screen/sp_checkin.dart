@@ -22,6 +22,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   final PermitService _permitService = PermitService();
   Permit? _permit;
   bool _isLoading = true;
+  bool _isCheckingIn = false;
   String? _errorMessage;
 
   @override
@@ -68,23 +69,71 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   }
 
   Future<void> _handleCheckIn(int direction) async {
-    final result = await _permitService.postCheckIn(widget.permitId ?? '', direction);
-    if (result['success']) {
-      _showSuccessSnack(direction == 1 ? 'Checked-in successfully' : 'Checked-out successfully');
-      _loadPermit();
-    } else {
-      if (result['statusCode'] == 401) {
-        await StorageService.clearAll();
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-            (route) => false,
+    setState(() => _isCheckingIn = true);
+    
+    try {
+      final result = await _permitService.postCheckIn(
+        widget.permitId ?? '',
+        direction,
+      );
+
+      if (!mounted) return;
+
+      if (result['success']) {
+        _showSuccessSnack(
+          direction == 1 ? 'Checked-in successfully!' : 'Checked-out successfully!',
+        );
+        _loadPermit();
+      } else {
+        final statusCode = result['statusCode'];
+        final message = result['message'] ?? 'Something went wrong';
+
+        if (statusCode == 401) {
+          await StorageService.clearAll();
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+              (route) => false,
+            );
+          }
+        } else if (statusCode == 404) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline_rounded, color: Color(0xffC62828), size: 22),
+                  SizedBox(width: 8),
+                  Text('Permit Not Found'),
+                ],
+              ),
+              content: const Text('This permit code does not exist in the system.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK', style: TextStyle(color: Color(0xff2D6B21))),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xffC62828),
+              content: Text(message),
+              duration: const Duration(seconds: 3),
+            ),
           );
         }
-      } else {
-        _showSuccessSnack('Failed to process check-in');
       }
+    } finally {
+      if (mounted) setState(() => _isCheckingIn = false);
     }
   }
 
@@ -371,35 +420,45 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: ElevatedButton(
-                                    onPressed: () => _handleCheckIn(1),
+                                    onPressed: _isCheckingIn ? null : () => _handleCheckIn(1),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryGreen,
+                                      disabledBackgroundColor: primaryGreen.withValues(alpha: 0.6),
                                       shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(12),
                                       ),
                                       elevation: 0,
                                     ),
-                                    child: const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Check-in",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
+                                    child: _isCheckingIn
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                "Check-in",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              SizedBox(width: 6),
+                                              Icon(
+                                                Icons.check_rounded,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        SizedBox(width: 6),
-                                        Icon(
-                                          Icons.check_rounded,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               ),
@@ -408,10 +467,10 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: OutlinedButton(
-                                    onPressed: () => _handleCheckIn(0),
+                                    onPressed: _isCheckingIn ? null : () => _handleCheckIn(0),
                                     style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                        color: Colors.red,
+                                      side: BorderSide(
+                                        color: _isCheckingIn ? Colors.red.withValues(alpha: 0.4) : Colors.red,
                                         width: 1.5,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -420,26 +479,35 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       ),
                                       backgroundColor: Colors.white,
                                     ),
-                                    child: const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Check-out",
-                                          style: TextStyle(
-                                            color: Colors.red,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
+                                    child: _isCheckingIn
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.red,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                "Check-out",
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              SizedBox(width: 6),
+                                              Icon(
+                                                Icons.arrow_outward_rounded,
+                                                color: Colors.red,
+                                                size: 18,
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        SizedBox(width: 6),
-                                        Icon(
-                                          Icons.arrow_outward_rounded,
-                                          color: Colors.red,
-                                          size: 18,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               ),
