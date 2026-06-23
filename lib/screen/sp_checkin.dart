@@ -22,7 +22,8 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   final PermitService _permitService = PermitService();
   Permit? _permit;
   bool _isLoading = true;
-  bool _isCheckingIn = false;
+  bool _isCheckingInLoading = false;   // spinner for Check In button only
+  bool _isCheckingOutLoading = false;  // spinner for Check Out button only
   String? _errorMessage;
 
   @override
@@ -69,8 +70,13 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   }
 
   Future<void> _handleCheckIn(int direction) async {
-    setState(() => _isCheckingIn = true);
-    
+    // Set only the relevant button's loading flag
+    if (direction == 1) {
+      setState(() => _isCheckingInLoading = true);
+    } else {
+      setState(() => _isCheckingOutLoading = true);
+    }
+
     try {
       final result = await _permitService.postCheckIn(
         widget.permitId ?? '',
@@ -86,7 +92,8 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
         _loadPermit();
       } else {
         final statusCode = result['statusCode'];
-        final message = result['message'] ?? 'Something went wrong';
+        // Always extract as plain string — never show raw map object
+        final String errorText = result['message']?.toString() ?? 'Something went wrong';
 
         if (statusCode == 401) {
           await StorageService.clearAll();
@@ -126,14 +133,20 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
             SnackBar(
               behavior: SnackBarBehavior.floating,
               backgroundColor: const Color(0xffC62828),
-              content: Text(message),
+              content: Text(errorText),
               duration: const Duration(seconds: 3),
             ),
           );
         }
       }
     } finally {
-      if (mounted) setState(() => _isCheckingIn = false);
+      if (mounted) {
+        if (direction == 1) {
+          setState(() => _isCheckingInLoading = false);
+        } else {
+          setState(() => _isCheckingOutLoading = false);
+        }
+      }
     }
   }
 
@@ -420,7 +433,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: ElevatedButton(
-                                    onPressed: _isCheckingIn ? null : () => _handleCheckIn(1),
+                                    onPressed: (_isCheckingInLoading || _isCheckingOutLoading) ? null : () => _handleCheckIn(1),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryGreen,
                                       disabledBackgroundColor: primaryGreen.withValues(alpha: 0.6),
@@ -430,7 +443,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       ),
                                       elevation: 0,
                                     ),
-                                    child: _isCheckingIn
+                                    child: _isCheckingInLoading
                                         ? const SizedBox(
                                             height: 20,
                                             width: 20,
@@ -467,10 +480,10 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: SizedBox(
                                   height: 50,
                                   child: OutlinedButton(
-                                    onPressed: _isCheckingIn ? null : () => _handleCheckIn(0),
+                                    onPressed: (_isCheckingInLoading || _isCheckingOutLoading) ? null : () => _handleCheckIn(0),
                                     style: OutlinedButton.styleFrom(
                                       side: BorderSide(
-                                        color: _isCheckingIn ? Colors.red.withValues(alpha: 0.4) : Colors.red,
+                                        color: _isCheckingOutLoading ? Colors.red.withValues(alpha: 0.4) : Colors.red,
                                         width: 1.5,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -479,7 +492,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       ),
                                       backgroundColor: Colors.white,
                                     ),
-                                    child: _isCheckingIn
+                                    child: _isCheckingOutLoading
                                         ? const SizedBox(
                                             height: 20,
                                             width: 20,

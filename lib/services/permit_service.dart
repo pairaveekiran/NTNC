@@ -18,6 +18,31 @@ class PermitService {
     return '$baseUrl$endpoint';
   }
 
+  /// Safely extracts the 'message' string from a JSON response body.
+  /// Never returns a raw JSON string or map dump.
+  String _extractMessage(String responseBody, {String fallback = 'Something went wrong'}) {
+    try {
+      final decoded = jsonDecode(responseBody);
+      if (decoded is Map && decoded['message'] != null) {
+        return decoded['message'].toString();
+      }
+      // Handle Laravel validation errors: { "errors": { "code": ["msg"] } }
+      if (decoded is Map && decoded['errors'] != null) {
+        final errors = decoded['errors'] as Map<String, dynamic>;
+        if (errors.isNotEmpty) {
+          final firstList = errors.values.first;
+          if (firstList is List && firstList.isNotEmpty) {
+            return firstList.first.toString();
+          }
+        }
+      }
+    } catch (_) {
+      // responseBody is not JSON — return as-is if short, else fallback
+      if (responseBody.length < 100) return responseBody;
+    }
+    return fallback;
+  }
+
   Future<Map<String, dynamic>> getPermit(String code) async {
     try {
       final token = await StorageService.getToken();
@@ -39,12 +64,17 @@ class PermitService {
         final data = jsonDecode(response.body);
         return {'success': true, 'permit': Permit.fromJson(data)};
       } else {
-        return {'success': false, 'statusCode': response.statusCode, 'message': response.body};
+        // Always extract clean message — never dump raw body
+        return {
+          'success': false,
+          'statusCode': response.statusCode,
+          'message': _extractMessage(response.body),
+        };
       }
     } on SocketException {
-      return {'success': false, 'message': 'No internet connection'};
+      return {'success': false, 'statusCode': 0, 'message': 'No internet connection'};
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'statusCode': 0, 'message': e.toString()};
     }
   }
 
@@ -59,7 +89,7 @@ class PermitService {
       final now = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
 
       final response = await http.post(
-        Uri.parse('https://mis.ntnc.org.np/api/v1/check-in'),
+        Uri.parse('$baseUrl/check-in'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -81,22 +111,23 @@ class PermitService {
         final data = json.decode(response.body);
         return {
           'success': true,
-          'message': data['message'] ?? 'Success',
+          'message': data['message']?.toString() ?? 'Success',
         };
       } else if (response.statusCode == 401) {
-        return {'success': false, 'statusCode': 401, 'message': 'Unauthorized'};
+        return {'success': false, 'statusCode': 401, 'message': 'Session expired. Please log in again.'};
       } else if (response.statusCode == 404) {
         return {'success': false, 'statusCode': 404, 'message': 'Permit not found'};
-      } else if (response.statusCode == 422) {
-        final data = json.decode(response.body);
-        return {'success': false, 'statusCode': 422, 'message': data.toString()};
       } else {
+        // Covers 422 validation errors and all other failures
+        // _extractMessage handles both { message: "..." } and { errors: { field: ["msg"] } }
         return {
           'success': false,
           'statusCode': response.statusCode,
-          'message': 'Failed: ${response.body}',
+          'message': _extractMessage(response.body),
         };
       }
+    } on SocketException {
+      return {'success': false, 'statusCode': 0, 'message': 'No internet connection'};
     } catch (e) {
       return {'success': false, 'statusCode': 0, 'message': e.toString()};
     }
