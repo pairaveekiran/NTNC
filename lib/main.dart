@@ -42,11 +42,11 @@ class _AuthCheckerState extends State<AuthChecker> {
     final token = await StorageService.getToken();
     final email = await StorageService.getUserEmail();
     
-    print('Auth Check:');
-    print('- Platform: ${StorageService.getPlatform()}');
-    print('- Is Logged In: $isLoggedIn');
-    print('- Token exists: ${token != null}');
-    print('- User email: $email');
+    debugPrint('Auth Check:');
+    debugPrint('- Platform: ${StorageService.getPlatform()}');
+    debugPrint('- Is Logged In: $isLoggedIn');
+    debugPrint('- Token exists: ${token != null}');
+    debugPrint('- User email: $email');
     
     if (!mounted) return;
     

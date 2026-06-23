@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:ntnc/screen/login.dart';
 import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
+import 'package:ntnc/services/bulk_checkin_service.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,28 +22,36 @@ class OfflineScanScreen extends StatefulWidget {
 /// ─────────────────────────────────────────────
 class ScannedPermitRecord {
   final String code;
-  final String action; // "checkin" or "checkout"
+  final int direction; // 1 = Check In, 0 = Check Out
   final DateTime timestamp;
+  String syncStatus; // "pending", "success", "failed"
+  String? errorMessage;
 
   ScannedPermitRecord({
     required this.code,
-    required this.action,
+    required this.direction,
     required this.timestamp,
+    this.syncStatus = "pending",
+    this.errorMessage,
   });
 
   /// Convert to JSON-compatible map
   Map<String, dynamic> toJson() => {
         'code': code,
-        'action': action,
+        'direction': direction,
         'timestamp': timestamp.toIso8601String(),
+        'syncStatus': syncStatus,
+        'errorMessage': errorMessage,
       };
 
   /// Construct from JSON map
   factory ScannedPermitRecord.fromJson(Map<String, dynamic> json) {
     return ScannedPermitRecord(
       code: json['code'] as String,
-      action: json['action'] as String,
+      direction: json['direction'] as int,
       timestamp: DateTime.parse(json['timestamp'] as String),
+      syncStatus: json['syncStatus'] as String? ?? "pending",
+      errorMessage: json['errorMessage'] as String?,
     );
   }
 }
@@ -56,6 +68,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
 
   /// ✅ Cached list of scanned permit records
   final List<ScannedPermitRecord> _scannedPermits = [];
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -123,7 +136,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
   /// After action, scanned code clears so user can scan again
   /// ✅ Now also persists to SharedPreferences
   /// ─────────────────────────────────────────────
-  void _handleAction(String action) {
+  void _handleAction(int direction) {
     if (scannedCode == null) return;
 
     setState(() {
@@ -131,7 +144,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
         0,
         ScannedPermitRecord(
           code: scannedCode!,
-          action: action,
+          direction: direction,
           timestamp: DateTime.now(),
         ),
       );
@@ -148,43 +161,122 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
     if (_scannedPermits.isEmpty) return;
 
     setState(() {
-      _scannedPermits.removeAt(0);
+      _scannedPermits.removeWhere((r) => r.syncStatus == "success");
     });
 
     _saveScannedPermits(); // ✅ persist after change
   }
 
-  /// ✅ Sync records (clears entire cache after syncing)
-  void _syncRecords() {
-    if (_scannedPermits.isEmpty) {
+  /// ✅ Sync records with API
+  Future<void> _syncRecords() async {
+    final pending = _scannedPermits.where((r) => r.syncStatus == "pending").toList();
+
+    if (pending.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: Color(0xffF39C12),
-          content: Text("No records to sync"),
+          content: Text("No pending records to sync"),
           duration: Duration(seconds: 2),
         ),
       );
       return;
     }
 
-    final count = _scannedPermits.length;
     setState(() {
-      scannedCode = null;
-      selectedAction = null;
-      _scannedPermits.clear();
+      _isSyncing = true;
     });
 
-    _saveScannedPermits(); // ✅ persist empty list after sync
+    try {
+      final service = BulkCheckInService();
+      final result = await service.postBulkCheckIns(pending);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: primaryGreen,
-        content: Text("$count record(s) synced successfully!"),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      final validCodes = List<String>.from(result['valid'] ?? []);
+      final invalidList = List<dynamic>.from(result['invalid'] ?? []);
+
+      for (final code in validCodes) {
+        final record = _scannedPermits.firstWhere((r) => r.code == code);
+        record.syncStatus = "success";
+      }
+
+      for (final item in invalidList) {
+        final code = item['code'] as String;
+        final message = item['message'] as String;
+        final record = _scannedPermits.firstWhere((r) => r.code == code);
+        record.syncStatus = "failed";
+        record.errorMessage = message;
+      }
+
+      await _saveScannedPermits();
+
+      setState(() {
+        _scannedPermits.removeWhere((r) => r.syncStatus == "success");
+      });
+
+      await _saveScannedPermits();
+
+      final failedCount = invalidList.length;
+      final syncedCount = validCodes.length;
+
+      if (!mounted) return;
+      
+      if (failedCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: primaryGreen,
+            content: Text("All $syncedCount records synced successfully!"),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xffF39C12),
+            content: Text("Synced $syncedCount. $failedCount failed — check the list."),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } on UnauthorizedException {
+      // Clear token and redirect to login
+      final storage = const FlutterSecureStorage();
+      await storage.delete(key: 'access_token');
+      
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    } on SocketException {
+      // Network error
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xffC62828),
+          content: Text("Sync failed. Check your connection."),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xffC62828),
+          content: Text("Sync failed. Check your connection."),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -265,12 +357,21 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: _syncRecords,
-                      icon: const Icon(
-                        Icons.sync_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
+                      onPressed: _isSyncing ? null : _syncRecords,
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.sync_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                     ),
                   ],
                 ),
@@ -524,7 +625,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                             ],
                             isSelected: selectedAction == "checkin",
                             selectedBorderColor: const Color(0xffA5D6A7),
-                            onTap: () => _handleAction("checkin"),
+                            onTap: () => _handleAction(1),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -538,7 +639,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                             ],
                             isSelected: selectedAction == "checkout",
                             selectedBorderColor: const Color(0xffEF9A9A),
-                            onTap: () => _handleAction("checkout"),
+                            onTap: () => _handleAction(0),
                           ),
                         ),
                       ],
@@ -732,14 +833,15 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             itemCount: _scannedPermits.length,
-            separatorBuilder: (_, __) => const Divider(
+            separatorBuilder: (_, _) => const Divider(
               height: 1,
               thickness: 0.8,
               color: Color(0xffF0F0F0),
             ),
             itemBuilder: (context, index) {
               final record = _scannedPermits[index];
-              final isCheckIn = record.action == "checkin";
+              final isCheckIn = record.direction == 1;
+              final isFailed = record.syncStatus == "failed";
 
               final actionColor =
                   isCheckIn ? primaryGreen : const Color(0xffC62828);
@@ -757,14 +859,31 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        child: Text(
-                          record.code,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xff1A1A1A),
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              record.code,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xff1A1A1A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (isFailed && record.errorMessage != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                record.errorMessage!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xffC62828),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -781,36 +900,73 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                           vertical: 10,
                         ),
                         child: Center(
-                          child: Container(
-                            width: 110,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: actionBg,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  isCheckIn
-                                      ? Icons.login_rounded
-                                      : Icons.logout_rounded,
-                                  size: 13,
-                                  color: actionColor,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 110,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  isCheckIn ? "Check In" : "Check Out",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: actionColor,
+                                decoration: BoxDecoration(
+                                  color: actionBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isCheckIn
+                                          ? Icons.login_rounded
+                                          : Icons.logout_rounded,
+                                      size: 13,
+                                      color: actionColor,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      isCheckIn ? "Check In" : "Check Out",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: actionColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isFailed) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xffFDE8E8),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        size: 11,
+                                        color: Color(0xffC62828),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "Failed",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xffC62828),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -866,8 +1022,6 @@ class _ActionButton extends StatelessWidget {
     required this.selectedBorderColor,
     required this.onTap,
   });
-
-  static const primaryGreen = Color(0xff2D6B21);
 
   @override
   Widget build(BuildContext context) {
