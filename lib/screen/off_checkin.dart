@@ -732,7 +732,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             itemCount: _scannedPermits.length,
-            separatorBuilder: (_, __) => const Divider(
+            separatorBuilder: (_, _) => const Divider(
               height: 1,
               thickness: 0.8,
               color: Color(0xffF0F0F0),
@@ -867,7 +867,7 @@ class _ActionButton extends StatelessWidget {
     required this.onTap,
   });
 
-  static const primaryGreen = Color(0xff2D6B21);
+  //static const primaryGreen = Color(0xff2D6B21);
 
   @override
   Widget build(BuildContext context) {

@@ -90,7 +90,7 @@ class _AuthCheckerState extends State<AuthChecker> {
                 ),
                 padding: const EdgeInsets.all(12),
                 child: Image.asset(
-                  'assets/images/ntnc.jpeg',
+                  'assets/images/ntnc.png',
                   fit: BoxFit.cover,
                 ),
               ),

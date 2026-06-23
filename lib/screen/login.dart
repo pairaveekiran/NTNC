@@ -281,12 +281,12 @@ class _LoginPageState extends State<LoginPage> {
                     height: 100,
                     width: 100,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.asset(
-                        "assets/images/ntnc.jpeg",
+                        "assets/images/ntnc.png",
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -543,66 +543,90 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 3),
 
                   /// Powered By Websoft Logo
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(50),
-                      border: Border.all(
-                        color: const Color(0xff2D6B21),
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          "assets/images/techlogo.png",
-                          height: 34,
-                          fit: BoxFit.fitHeight,
-                        ),
-                        const SizedBox(width: 10),
-                        const Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: "web",
-                                style: TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff444444),
-                                ),
-                              ),
-                              TextSpan(
-                                text: "soft",
-                                style: TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xff8BC340),
-                                ),
-                              ),
-                              TextSpan(
-                                text: "\nTECHNOLOGY NEPAL",
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xff555555),
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.left,
-                        )
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 25),
+
+ClipRRect(
+  borderRadius: BorderRadius.circular(50),
+  child: BackdropFilter(
+    filter: ImageFilter.blur(
+      sigmaX: 10,
+      sigmaY: 10,
+    ),
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+  radius: 25,
+  backgroundColor: Colors.transparent,
+  child: ClipOval(
+    child: Image.asset(
+      "assets/images/techlogo.png",
+      width: 45,
+      height: 45,
+      fit: BoxFit.cover,
+    ),
+  ),
+),
+          const SizedBox(width: 10),
+          const Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: "web",
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+                TextSpan(
+                  text: "soft",
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xff8BC340),
+                  ),
+                ),
+                TextSpan(
+                  text: "\nTECHNOLOGY NEPAL",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
+                 SizedBox(height: 25),
                 ],
               ),
             ),

@@ -119,7 +119,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: Image.asset(
-                              "assets/images/ntnc.jpeg",
+                              "assets/images/ntnc.png",
                               fit: BoxFit.cover,
                             ),
                           ),
