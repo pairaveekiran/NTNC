@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
+import 'package:ntnc/services/notice_service.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -14,11 +15,59 @@ class _NoticesScreenState extends State<NoticesScreen> {
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
 
-  // Toggle this to true to preview with sample notices
-  final List<_Notice> notices = [];
+  bool _isLoading = true;
+  String? _noticeBody;
+  String? _errorMessage;
+  List<_Notice> notices = [];
 
   String selectedFilter = "All";
   final List<String> filters = ["All", "Unread", "Important"];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNotice();
+  }
+
+  Future<void> _fetchNotice() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await NoticeService().getNotice();
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _noticeBody = result;
+        _isLoading = false;
+        
+        if (_noticeBody != null) {
+          notices = [
+            _Notice(
+              title: "Official Notice",
+              description: _noticeBody!,
+              time: "Just now",
+              icon: Icons.campaign_rounded,
+              iconColor: const Color(0xffF39C12),
+              iconBg: const Color(0xffFFF8E7),
+            ),
+          ];
+        } else {
+          notices = [];
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+        notices = [];
+      });
+    }
+  }
 
   /// ─────────────────────────────────────────────
   /// Open Camera QR Scanner
@@ -201,15 +250,23 @@ class _NoticesScreenState extends State<NoticesScreen> {
 
           /// ✅ CONTENT
           Expanded(
-            child: notices.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                    itemCount: notices.length,
-                    itemBuilder: (context, index) {
-                      return _buildNoticeCard(notices[index]);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xff2D6B21),
+                    ),
+                  )
+                : _errorMessage != null
+                    ? _buildErrorState()
+                    : notices.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                            itemCount: notices.length,
+                            itemBuilder: (context, index) {
+                              return _buildNoticeCard(notices[index]);
+                            },
+                          ),
           ),
         ],
       ),
@@ -314,16 +371,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
             SizedBox(
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: primaryGreen,
-                      content: Text("Checking for new notices..."),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
+                onPressed: _fetchNotice,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: primaryGreen, width: 1.4),
                   shape: RoundedRectangleBorder(
@@ -343,6 +391,72 @@ class _NoticesScreenState extends State<NoticesScreen> {
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ─────────────────────────────────────────────
+  /// Notice Card (for when data exists)
+  /// ─────────────────────────────────────────────
+  /// ─────────────────────────────────────────────
+  /// Error State
+  /// ─────────────────────────────────────────────
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(32, 0, 32, 100),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 64,
+              color: Color(0xffC62828),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Failed to Load Notices",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? "Unknown error",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xff7A7A7A),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _fetchNotice,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: const Text(
+                "Retry",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
