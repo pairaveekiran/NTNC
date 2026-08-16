@@ -90,6 +90,11 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
           direction == 1 ? 'Checked-in successfully!' : 'Checked-out successfully!',
         );
         _loadPermit();
+        
+        // Wait briefly for the snackbar to be seen, then pop returning true
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) Navigator.pop(context, true);
+        });
       } else {
         final statusCode = result['statusCode'];
         // Always extract as plain string — never show raw map object

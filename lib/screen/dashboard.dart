@@ -29,20 +29,34 @@ class _DashboardHomeState extends State<DashboardHome> {
       /// ✅ CENTER SCAN BUTTON
       floatingActionButton: CustomScanFAB(
         onPressed: () async {
-          final scannedCode = await Navigator.push<String>(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const QRScannerScreen(),
-            ),
-          );
-
-          if (scannedCode != null && scannedCode.isNotEmpty && context.mounted) {
-            Navigator.push(
+          bool keepScanning = true;
+          while (keepScanning) {
+            if (!context.mounted) break;
+            
+            final scannedCode = await Navigator.push<String>(
               context,
               MaterialPageRoute(
-                builder: (context) => SinglePostCheckInScreen(permitId: scannedCode),
+                builder: (context) => const QRScannerScreen(),
               ),
             );
+
+            if (scannedCode != null && scannedCode.isNotEmpty && context.mounted) {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SinglePostCheckInScreen(permitId: scannedCode),
+                ),
+              );
+              
+              // If result is true, check-in succeeded. Continue loop to open scanner again.
+              // Otherwise, user backed out manually, so stop looping.
+              if (result != true) {
+                keepScanning = false;
+              }
+            } else {
+              // User backed out of the scanner
+              keepScanning = false;
+            }
           }
         },
       ),
