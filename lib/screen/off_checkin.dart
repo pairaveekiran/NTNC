@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:ntnc/screen/hardware_scanner.dart';
 import 'package:ntnc/screen/login.dart';
-import 'package:ntnc/screen/notices.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/services/bulk_checkin_service.dart';
 import 'package:ntnc/services/storage_service.dart';
@@ -415,11 +415,11 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavigation(
         isCheckInActive: true,
-        onNotificationPressed: () {
+        onScannerPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const NoticesScreen(),
+              builder: (_) => const HardwareScannerScreen(),
             ),
           );
         },

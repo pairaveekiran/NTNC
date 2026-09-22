@@ -114,11 +114,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
       floatingActionButton: CustomScanFAB(onPressed: _openScanner),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
-      /// ✅ Bottom Navigation — Notification tab is ACTIVE (green)
+      /// ✅ Bottom Navigation — Scanner tab is ACTIVE (green)
       bottomNavigationBar: CustomBottomNavigation(
-        isNotificationActive: true, // ✅ THIS makes Notification GREEN
-        onNotificationPressed: () {
-          // Already on this screen — do nothing
+        isScannerActive: true,
+        onScannerPressed: () {
+          // Already navigated from Scanner slot — do nothing.
         },
         onCheckInPressed: _openCheckIn,
       ),

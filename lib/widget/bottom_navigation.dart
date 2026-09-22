@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 /// Bottom Navigation Bar with Notch
 /// ─────────────────────────────────────────────
 class CustomBottomNavigation extends StatelessWidget {
-  final VoidCallback? onNotificationPressed;
+  final VoidCallback? onScannerPressed;
   final VoidCallback? onCheckInPressed;
-  final bool isNotificationActive;
+  final bool isScannerActive;
   final bool isCheckInActive;
 
   const CustomBottomNavigation({
     super.key,
-    this.onNotificationPressed,
+    this.onScannerPressed,
     this.onCheckInPressed,
-    this.isNotificationActive = false,
+    this.isScannerActive = false,
     this.isCheckInActive = false,
   });
 
@@ -30,10 +30,10 @@ class CustomBottomNavigation extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _BottomNavItem(
-            icon: Icons.notifications_rounded,
-            label: "Notification",
-            onTap: onNotificationPressed,
-            isActive: isNotificationActive,
+            icon: Icons.document_scanner_rounded,
+            label: "Scanner",
+            onTap: onScannerPressed,
+            isActive: isScannerActive,
           ),
           const SizedBox(width: 60), // Space for FAB
           _BottomNavItem(
@@ -53,8 +53,13 @@ class CustomBottomNavigation extends StatelessWidget {
 /// ─────────────────────────────────────────────
 class CustomScanFAB extends StatelessWidget {
   final VoidCallback? onPressed;
+  final VoidCallback? onHardwareScannerPressed;
 
-  const CustomScanFAB({super.key, this.onPressed});
+  const CustomScanFAB({
+    super.key,
+    this.onPressed,
+    this.onHardwareScannerPressed,
+  });
 
   void _showScannerOptions(BuildContext context) {
     showDialog(
@@ -138,7 +143,9 @@ class CustomScanFAB extends StatelessWidget {
                   subtitle: 'Use an external connected scanner device',
                   onTap: () {
                     Navigator.pop(context); // Close dialog
-                    // Do nothing for now as per requirements
+                    if (onHardwareScannerPressed != null) {
+                      onHardwareScannerPressed!();
+                    }
                   },
                 ),
               ],

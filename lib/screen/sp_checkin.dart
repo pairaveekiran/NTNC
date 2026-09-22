@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ntnc/services/permit_service.dart';
 import 'package:ntnc/models/permit_model.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +21,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   static const lightGreen = Color(0xff5BA84A);
   
   final PermitService _permitService = PermitService();
+  final FlutterTts _flutterTts = FlutterTts();
   Permit? _permit;
   bool _isLoading = true;
   bool _isCheckingInLoading = false;   // spinner for Check In button only
@@ -29,7 +31,24 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   @override
   void initState() {
     super.initState();
+    _initTts();
     _loadPermit();
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage('en-US');
+    await _flutterTts.setSpeechRate(0.6);
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.stop();
+    await _flutterTts.speak(text);
   }
 
   Future<void> _loadPermit() async {
@@ -86,11 +105,12 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
       if (!mounted) return;
 
       if (result['success']) {
-        _showSuccessSnack(
-          direction == 1 ? 'Checked-in successfully!' : 'Checked-out successfully!',
-        );
+        final successText =
+            direction == 1 ? 'Checked-in successfully!' : 'Checked-out successfully!';
+        _showSuccessSnack(successText);
+        _speak(successText);
         _loadPermit();
-        
+
         // Wait briefly for the snackbar to be seen, then pop returning true
         Future.delayed(const Duration(milliseconds: 1500), () {
           if (mounted) Navigator.pop(context, true);

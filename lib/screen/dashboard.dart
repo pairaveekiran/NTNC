@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ntnc/screen/notices.dart';
+import 'package:ntnc/screen/hardware_scanner.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
 import 'package:ntnc/screen/sp_checkin.dart';
@@ -28,11 +28,12 @@ class _DashboardHomeState extends State<DashboardHome> {
 
       /// ✅ CENTER SCAN BUTTON
       floatingActionButton: CustomScanFAB(
+        // Camera QR path
         onPressed: () async {
           bool keepScanning = true;
           while (keepScanning) {
             if (!context.mounted) break;
-            
+
             final scannedCode = await Navigator.push<String>(
               context,
               MaterialPageRoute(
@@ -47,28 +48,33 @@ class _DashboardHomeState extends State<DashboardHome> {
                   builder: (context) => SinglePostCheckInScreen(permitId: scannedCode),
                 ),
               );
-              
-              // If result is true, check-in succeeded. Continue loop to open scanner again.
-              // Otherwise, user backed out manually, so stop looping.
-              if (result != true) {
-                keepScanning = false;
-              }
+
+              if (result != true) keepScanning = false;
             } else {
-              // User backed out of the scanner
               keepScanning = false;
             }
           }
+        },
+        // Hardware scanner path (from FAB dialog "Bar Code Scanner" option)
+        onHardwareScannerPressed: () {
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const HardwareScannerScreen(),
+            ),
+          );
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
       /// ✅ BOTTOM NAVIGATION BAR
       bottomNavigationBar: CustomBottomNavigation(
-        onNotificationPressed: () {
+        onScannerPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const NoticesScreen(),
+              builder: (_) => const HardwareScannerScreen(),
             ),
           );
         },
