@@ -292,47 +292,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// 🟩 Permit ID Card
-                  _buildCard(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Permit ID",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xff8A8A8A),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Color(0xffD9D9D9),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              _permit?.code ?? widget.permitId ?? '',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xff1A1A1A),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
 
-                  const SizedBox(height: 14),
 
                   /// 👤 Permit Holder Info Card
                   _buildCard(
@@ -389,13 +349,41 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      "${_permit?.firstName ?? ''} ${_permit?.midName ?? ''} ${_permit?.lastName ?? ''}".trim(),
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xff1A1A1A),
-                                      ),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            "${_permit?.firstName ?? ''} ${_permit?.midName ?? ''} ${_permit?.lastName ?? ''}".trim().replaceAll(RegExp(r'\s+'), ' '),
+                                            style: const TextStyle(
+                                              fontSize: 19,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xff1A1A1A),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xffE6F4E8),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: primaryGreen.withValues(alpha: 0.25),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            _permit?.code ?? widget.permitId ?? '',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: primaryGreen,
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     Text(

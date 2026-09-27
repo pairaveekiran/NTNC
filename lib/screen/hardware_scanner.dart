@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ntnc/screen/sp_checkin.dart';
+import 'package:ntnc/screen/sp_checkin_first.dart';
 
 class HardwareScannerScreen extends StatefulWidget {
   const HardwareScannerScreen({super.key});
@@ -79,7 +79,7 @@ class _HardwareScannerScreenState extends State<HardwareScannerScreen>
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SinglePostCheckInScreen(permitId: code),
+        builder: (_) => SinglePostCheckInFirstScreen(permitId: code),
       ),
     );
 

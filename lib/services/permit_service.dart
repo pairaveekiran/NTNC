@@ -78,6 +78,42 @@ class PermitService {
     }
   }
 
+  /// Calls the V2 endpoint: GET /permits/V2?code=
+  /// Returns a PermitV2 object (lighter payload — no nested relations).
+  Future<Map<String, dynamic>> getPermitV2(String code) async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        return {'success': false, 'statusCode': 401, 'message': 'No token found'};
+      }
+
+      final apiUrl = _getApiUrl('/permits/V2?code=$code');
+      final response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'permit': PermitV2.fromJson(data)};
+      } else {
+        return {
+          'success': false,
+          'statusCode': response.statusCode,
+          'message': _extractMessage(response.body),
+        };
+      }
+    } on SocketException {
+      return {'success': false, 'statusCode': 0, 'message': 'No internet connection'};
+    } catch (e) {
+      return {'success': false, 'statusCode': 0, 'message': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> postCheckIn(
     String code,
     int direction, {

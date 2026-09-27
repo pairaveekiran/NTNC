@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ntnc/screen/hardware_scanner.dart';
 import 'package:ntnc/screen/off_checkin.dart';
 import 'package:ntnc/screen/qr_scanner.dart';
-import 'package:ntnc/screen/sp_checkin.dart';
-
+import 'package:ntnc/screen/sp_checkin_first.dart';
 import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
@@ -45,7 +44,7 @@ class _DashboardHomeState extends State<DashboardHome> {
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => SinglePostCheckInScreen(permitId: scannedCode),
+                  builder: (context) => SinglePostCheckInFirstScreen(permitId: scannedCode),
                 ),
               );
 
@@ -354,7 +353,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                             context,
                             MaterialPageRoute(
                               builder: (context) =>
-                                  const SinglePostCheckInScreen(),
+                                  const SinglePostCheckInFirstScreen(),
                             ),
                           );
                         },

@@ -1,4 +1,4 @@
-class Permit {
+﻿class Permit {
   final String code;
   final String passport;
   final String firstName;
@@ -138,5 +138,41 @@ class TrekEntry {
 
   factory TrekEntry.fromJson(Map<String, dynamic> json) {
     return TrekEntry(name: json['name'] ?? '');
+  }
+}
+
+// ─── V2 Permit Model (for /permits/V2 endpoint) ───────────────────────────
+class PermitV2 {
+  final int id;
+  final String firstName;
+  final String midName;
+  final String lastName;
+  final String dob;
+  final String gender;
+  final String code;
+  final String receipt;
+
+  PermitV2({
+    required this.id,
+    required this.firstName,
+    required this.midName,
+    required this.lastName,
+    required this.dob,
+    required this.gender,
+    required this.code,
+    required this.receipt,
+  });
+
+  factory PermitV2.fromJson(Map<String, dynamic> json) {
+    return PermitV2(
+      id: json['id'] ?? 0,
+      firstName: json['first_name'] ?? '',
+      midName: json['mid_name'] ?? '',
+      lastName: json['last_name'] ?? '',
+      dob: json['dob'] ?? '',
+      gender: json['gender'] ?? '',
+      code: json['code'] ?? '',
+      receipt: json['receipt'] ?? '',
+    );
   }
 }
