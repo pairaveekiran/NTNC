@@ -44,6 +44,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
   Future<void> _initTts() async {
     await _flutterTts.setLanguage('en-US');
     await _flutterTts.setSpeechRate(0.6);
+    await _flutterTts.awaitSpeakCompletion(true);
   }
 
   Future<void> _speak(String text) async {
@@ -108,13 +109,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
         final successText =
             direction == 1 ? 'Checked-in successfully!' : 'Checked-out successfully!';
         _showSuccessSnack(successText);
-        _speak(successText);
-        _loadPermit();
+        await _speak(successText);
 
-        // Wait briefly for the snackbar to be seen, then pop returning true
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) Navigator.pop(context, true);
-        });
+        if (mounted) Navigator.pop(context, true);
       } else {
         final statusCode = result['statusCode'];
         // Always extract as plain string — never show raw map object
@@ -130,6 +127,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
             );
           }
         } else if (statusCode == 404) {
+          _speak('Permit Not Found');
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -154,6 +152,7 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
             ),
           );
         } else {
+          _speak(errorText);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               behavior: SnackBarBehavior.floating,
@@ -314,11 +313,26 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       color: const Color(0xffF2F2F2),
                                       borderRadius: BorderRadius.circular(14),
                                     ),
-                                    child: const Icon(
-                                      Icons.person_rounded,
-                                      size: 60,
-                                      color: Color(0xffBDBDBD),
-                                    ),
+                                    child: _permit != null && _permit!.photo.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(14),
+                                            child: Image.network(
+                                              'https://epermit.ntnc.org.np/upload/application/${_permit!.photo}',
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return const Icon(
+                                                  Icons.person_rounded,
+                                                  size: 60,
+                                                  color: Color(0xffBDBDBD),
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.person_rounded,
+                                            size: 60,
+                                            color: Color(0xffBDBDBD),
+                                          ),
                                   ),
                                   const SizedBox(height: 8),
                                   Container(
@@ -333,9 +347,9 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                     child: Text(
                                       _permit?.country.nationality ?? '',
                                       style: const TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 16,
                                         color: primaryGreen,
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
@@ -404,38 +418,19 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                     _infoRow("Receipt No", _permit?.receipt ?? ''),
                                     const SizedBox(height: 6),
                                     _infoRow("Permit Code", _permit?.code ?? ''),
+                                    if (_permit != null && _permit!.projectName.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      _infoRow("Project", _permit!.projectName),
+                                    ],
+                                    if (_permit != null && _permit!.treks.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      _infoRow("Trek", _permit!.treks.first.trek.name),
+                                    ],
                                   ],
                                 ),
                               ),
                             ],
                           ),
-
-                          const SizedBox(height: 14),
-
-                          /// Trekking Region
-                          if (_permit?.treks.isNotEmpty ?? false)
-                            Row(
-                              children: [
-                                const Text(
-                                  "Trekking Region",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xff8A8A8A),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Text(
-                                    _permit?.treks[0].trek.name ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xff1A1A1A),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
 
                           const SizedBox(height: 14),
 

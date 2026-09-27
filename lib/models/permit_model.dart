@@ -1,4 +1,4 @@
-﻿class Permit {
+class Permit {
   final String code;
   final String passport;
   final String firstName;
@@ -15,6 +15,8 @@
   final EntryExitPost getExitPost;
   final List<CheckIn> checkIns;
   final List<Trek> treks;
+  final String projectName;
+  final String photo;
 
   Permit({
     required this.code,
@@ -33,6 +35,8 @@
     required this.getExitPost,
     required this.checkIns,
     required this.treks,
+    required this.projectName,
+    required this.photo,
   });
 
   factory Permit.fromJson(Map<String, dynamic> json) {
@@ -53,6 +57,8 @@
       getExitPost: EntryExitPost.fromJson(json['get_exit_post'] ?? {}),
       checkIns: (json['check_ins'] as List?)?.map((e) => CheckIn.fromJson(e)).toList() ?? [],
       treks: (json['treks'] as List?)?.map((e) => Trek.fromJson(e)).toList() ?? [],
+      projectName: json['project']?['description'] ?? '',
+      photo: json['photo'] ?? '',
     );
   }
 }
@@ -63,7 +69,7 @@ class Country {
   Country({required this.nationality});
 
   factory Country.fromJson(Map<String, dynamic> json) {
-    return Country(nationality: json['nationality'] ?? '');
+    return Country(nationality: json['nationality'] ?? json['name'] ?? '');
   }
 }
 
@@ -151,6 +157,11 @@ class PermitV2 {
   final String gender;
   final String code;
   final String receipt;
+  final String photo;
+  final String countryName;
+  final String passport;
+  final String projectName;
+  final List<Trek> treks;
 
   PermitV2({
     required this.id,
@@ -161,6 +172,11 @@ class PermitV2 {
     required this.gender,
     required this.code,
     required this.receipt,
+    required this.photo,
+    required this.countryName,
+    required this.passport,
+    required this.projectName,
+    required this.treks,
   });
 
   factory PermitV2.fromJson(Map<String, dynamic> json) {
@@ -173,6 +189,11 @@ class PermitV2 {
       gender: json['gender'] ?? '',
       code: json['code'] ?? '',
       receipt: json['receipt'] ?? '',
+      photo: json['photo'] ?? '',
+      countryName: json['country_name'] ?? json['country']?['nationality'] ?? json['country']?['name'] ?? '',
+      passport: json['passport'] ?? '',
+      projectName: json['project']?['description'] ?? '',
+      treks: (json['treks'] as List?)?.map((e) => Trek.fromJson(e)).toList() ?? [],
     );
   }
 }

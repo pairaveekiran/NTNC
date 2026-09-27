@@ -15,6 +15,38 @@ class DashboardHome extends StatefulWidget {
 }
 
 class _DashboardHomeState extends State<DashboardHome> {
+  Future<void> _startMobileScan() async {
+    bool keepScanning = true;
+    while (keepScanning) {
+      if (!context.mounted) break;
+
+      try {
+        final scannedCode = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const QRScannerScreen(),
+          ),
+        );
+
+        if (!context.mounted) break;
+
+        if (scannedCode != null && scannedCode.isNotEmpty) {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  SinglePostCheckInFirstScreen(permitId: scannedCode),
+            ),
+          );
+          if (result != true) keepScanning = false;
+        } else {
+          keepScanning = false;
+        }
+      } catch (e) {
+        keepScanning = false;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,32 +60,7 @@ class _DashboardHomeState extends State<DashboardHome> {
       /// ✅ CENTER SCAN BUTTON
       floatingActionButton: CustomScanFAB(
         // Camera QR path
-        onPressed: () async {
-          bool keepScanning = true;
-          while (keepScanning) {
-            if (!context.mounted) break;
-
-            final scannedCode = await Navigator.push<String>(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const QRScannerScreen(),
-              ),
-            );
-
-            if (scannedCode != null && scannedCode.isNotEmpty && context.mounted) {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SinglePostCheckInFirstScreen(permitId: scannedCode),
-                ),
-              );
-
-              if (result != true) keepScanning = false;
-            } else {
-              keepScanning = false;
-            }
-          }
-        },
+        onPressed: _startMobileScan,
         // Hardware scanner path (from FAB dialog "Bar Code Scanner" option)
         onHardwareScannerPressed: () {
           if (!context.mounted) return;
@@ -69,14 +76,7 @@ class _DashboardHomeState extends State<DashboardHome> {
 
       /// ✅ BOTTOM NAVIGATION BAR
       bottomNavigationBar: CustomBottomNavigation(
-        onScannerPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const HardwareScannerScreen(),
-            ),
-          );
-        },
+        onScannerPressed: _startMobileScan,
         onCheckInPressed: () {
           Navigator.push(
             context,

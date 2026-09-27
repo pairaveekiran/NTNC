@@ -31,7 +31,7 @@ class CustomBottomNavigation extends StatelessWidget {
         children: [
           _BottomNavItem(
             icon: Icons.document_scanner_rounded,
-            label: "Scanner",
+            label: "Mobile Scanner",
             onTap: onScannerPressed,
             isActive: isScannerActive,
           ),

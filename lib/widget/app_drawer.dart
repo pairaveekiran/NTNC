@@ -267,7 +267,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 /// App Version Footer
                 const Center(
                   child: Text(
-                    "NTNC Wildlife App • v1.0.0",
+                    "NTNC Wildlife App • v1.0.1",
                     style: TextStyle(
                       fontSize: 11,
                       color: Color(0xffAAAAAA),

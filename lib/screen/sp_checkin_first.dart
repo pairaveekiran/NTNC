@@ -49,6 +49,7 @@ class _SinglePostCheckInFirstScreenState
   Future<void> _initTts() async {
     await _flutterTts.setLanguage('en-US');
     await _flutterTts.setSpeechRate(0.6);
+    await _flutterTts.awaitSpeakCompletion(true);
   }
 
   Future<void> _speak(String text) async {
@@ -115,12 +116,9 @@ class _SinglePostCheckInFirstScreenState
             ? 'Checked-in successfully!'
             : 'Checked-out successfully!';
         _showSuccessSnack(successText);
-        _speak(successText);
-        _loadPermit();
-
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) Navigator.pop(context, true);
-        });
+        await _speak(successText);
+        
+        if (mounted) Navigator.pop(context, true);
       } else {
         final statusCode = result['statusCode'];
         final String errorText =
@@ -136,6 +134,7 @@ class _SinglePostCheckInFirstScreenState
             );
           }
         } else if (statusCode == 404) {
+          _speak('Permit Not Found');
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -162,6 +161,7 @@ class _SinglePostCheckInFirstScreenState
             ),
           );
         } else {
+          _speak(errorText);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               behavior: SnackBarBehavior.floating,
@@ -367,11 +367,26 @@ class _SinglePostCheckInFirstScreenState
                     color: const Color(0xffF2F2F2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    size: 50,
-                    color: Color(0xffBDBDBD),
-                  ),
+                  child: p.photo.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            'https://epermit.ntnc.org.np/upload/application/${p.photo}',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.person_rounded,
+                                size: 50,
+                                color: Color(0xffBDBDBD),
+                              );
+                            },
+                          ),
+                        )
+                      : const Icon(
+                          Icons.person_rounded,
+                          size: 50,
+                          color: Color(0xffBDBDBD),
+                        ),
                 ),
 
                 const SizedBox(width: 14),
@@ -410,7 +425,7 @@ class _SinglePostCheckInFirstScreenState
                             ),
                           ),
                           const SizedBox(width: 8),
-                          // Permit code badge
+                          // Country Name (made bigger)
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
@@ -422,12 +437,12 @@ class _SinglePostCheckInFirstScreenState
                               ),
                             ),
                             child: Text(
-                              p.code,
+                              p.countryName,
                               style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w800,
                                 color: primaryGreen,
-                                letterSpacing: 0.6,
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ),
@@ -455,9 +470,21 @@ class _SinglePostCheckInFirstScreenState
             const SizedBox(height: 10),
 
             // ── Detail rows ──────────────────────────
+            if (p.passport.isNotEmpty) ...[
+              _infoRow('Passport No', p.passport),
+              const SizedBox(height: 8),
+            ],
             _infoRow('Receipt No', p.receipt),
             const SizedBox(height: 8),
             _infoRow('Permit Code', p.code),
+            if (p.projectName.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _infoRow('Project', p.projectName),
+            ],
+            if (p.treks.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _infoRow('Trek', p.treks.first.trek.name),
+            ],
           ],
         ),
       ),
