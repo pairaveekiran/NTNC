@@ -22,6 +22,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   // ─────────────────────────────────────────────────────────────────────
 
   bool _isScanned = false;
+  bool _hasError = false; // tracks whether camera error is showing
 
   @override
   void initState() {
@@ -134,6 +135,10 @@ class _QRScannerScreenState extends State<QRScannerScreen>
           controller: _controller,
           onDetect: _onDetect,
           errorBuilder: (context, error) {
+            // Hide the scan overlay when an error is shown
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_hasError) setState(() => _hasError = true);
+            });
             final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
             return Center(
               child: Container(
@@ -220,36 +225,38 @@ class _QRScannerScreenState extends State<QRScannerScreen>
           ),
         ),
 
-        // ── Scan frame overlay ───────────────────────────────────────────
-        Center(
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xff5BA84A), width: 3),
-              borderRadius: BorderRadius.circular(16),
+        // ── Scan frame overlay — hidden when camera error is active ────────
+        if (!_hasError)
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xff5BA84A), width: 3),
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
-        ),
 
-        // ── Instructions ─────────────────────────────────────────────────
-        Positioned(
-          bottom: 60,
-          left: 30,
-          right: 30,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'Align QR code within the frame to scan\nor use hardware scanner',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 14),
+        // ── Instructions — hidden when camera error is active ─────────────
+        if (!_hasError)
+          Positioned(
+            bottom: 60,
+            left: 30,
+            right: 30,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Align QR code within the frame to scan\nor use hardware scanner',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
