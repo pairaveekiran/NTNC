@@ -10,42 +10,74 @@ class QRScannerScreen extends StatefulWidget {
 
 class _QRScannerScreenState extends State<QRScannerScreen>
     with WidgetsBindingObserver {
-  late final MobileScannerController _controller;
+  // autoStart: false — we manually start BEFORE showing the MobileScanner widget
+  // This prevents native-level crashes on devices with no camera (hardware scanners)
+  final MobileScannerController _controller = MobileScannerController(
+    autoStart: false,
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+
+  bool _isChecking = true;   // true = still testing if camera exists
+  bool _cameraOk = false;    // true = camera started successfully
   bool _isScanned = false;
-  bool _isStopping = false;
+  bool _errorDialogShown = false;
+  String _errorTitle = 'No Camera Found';
+  String _errorMessage =
+      'No camera was found on this device. Please use a mobile phone to scan QR codes.';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Create controller — MobileScanner widget handles starting it automatically
-    _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.noDuplicates,
-    );
+    // Probe the camera after the first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) => _probeCamera());
+  }
+
+  /// Try to start the camera. If it throws, camera is unavailable.
+  /// MobileScanner widget is only rendered AFTER this succeeds.
+  Future<void> _probeCamera() async {
+    try {
+      await _controller.start();
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+          _cameraOk = true;
+        });
+      }
+    } catch (e) {
+      // Camera unavailable (no hardware, permission denied, etc.)
+      final isPermission = e.toString().toLowerCase().contains('permission');
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+          _cameraOk = false;
+          if (isPermission) {
+            _errorTitle = 'Camera Permission Required';
+            _errorMessage =
+                'Please allow camera access in your device settings, then try again.';
+          } else {
+            _errorTitle = 'No Camera Found';
+            _errorMessage =
+                'No camera was found on this device. Please use a mobile phone to scan QR codes.';
+          }
+        });
+        _showErrorDialog();
+      }
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _safeDispose();
+    // Simple synchronous dispose — no async, no awaiting.
+    // MobileScannerController.dispose() handles stopping internally.
+    try { _controller.dispose(); } catch (_) {}
     super.dispose();
-  }
-
-  void _safeDispose() {
-    if (_isStopping) return;
-    _isStopping = true;
-    try {
-      _controller.stop().catchError((_) {}).whenComplete(() {
-        try { _controller.dispose(); } catch (_) {}
-      });
-    } catch (_) {
-      try { _controller.dispose(); } catch (_) {}
-    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isStopping) return;
+    if (!_cameraOk) return;
     if (state == AppLifecycleState.paused) {
       try { _controller.stop(); } catch (_) {}
     } else if (state == AppLifecycleState.resumed) {
@@ -54,7 +86,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   }
 
   void _onDetect(BarcodeCapture capture) {
-    if (_isScanned || !mounted || _isStopping) return;
+    if (_isScanned || !mounted) return;
     final barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
       final code = barcodes.first.rawValue;
@@ -66,28 +98,38 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   }
 
   void _goBack() {
-    if (!mounted) return;
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
-  void _showPermissionDialog() {
-    if (!mounted) return;
+  void _showErrorDialog() {
+    if (!mounted || _errorDialogShown) return;
+    _errorDialogShown = true;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
           children: [
-            Icon(Icons.camera_alt_outlined, color: Color(0xffF57C00), size: 24),
-            SizedBox(width: 10),
-            Expanded(child: Text('Camera Permission Required')),
+            Icon(
+              _errorTitle == 'Camera Permission Required'
+                  ? Icons.camera_alt_outlined
+                  : Icons.no_photography_rounded,
+              color: _errorTitle == 'Camera Permission Required'
+                  ? const Color(0xffF57C00)
+                  : const Color(0xffC62828),
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(_errorTitle)),
           ],
         ),
-        content: const Text(
-          'This app needs camera access to scan QR codes. Please allow camera permission in your device settings.',
-          style: TextStyle(fontSize: 13, color: Color(0xff555555), height: 1.4),
+        content: Text(
+          _errorMessage,
+          style: const TextStyle(
+              fontSize: 13, color: Color(0xff555555), height: 1.4),
         ),
         actions: [
           ElevatedButton(
@@ -127,143 +169,113 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             onPressed: _goBack,
           ),
           actions: [
-            IconButton(
-              onPressed: () {
-                try { _controller.toggleTorch(); } catch (_) {}
-              },
-              icon: const Icon(Icons.flash_on_rounded),
-            ),
-            IconButton(
-              onPressed: () {
-                try { _controller.switchCamera(); } catch (_) {}
-              },
-              icon: const Icon(Icons.cameraswitch_rounded),
-            ),
+            if (_cameraOk) ...[
+              IconButton(
+                onPressed: () {
+                  try { _controller.toggleTorch(); } catch (_) {}
+                },
+                icon: const Icon(Icons.flash_on_rounded),
+              ),
+              IconButton(
+                onPressed: () {
+                  try { _controller.switchCamera(); } catch (_) {}
+                },
+                icon: const Icon(Icons.cameraswitch_rounded),
+              ),
+            ],
           ],
         ),
-        body: Stack(
-          children: [
-            MobileScanner(
-              controller: _controller,
-              onDetect: _onDetect,
-              errorBuilder: (context, error) {
-                // Determine if it's a permission issue or a hardware issue
-                final isPermission =
-                    error.errorCode == MobileScannerErrorCode.permissionDenied;
-
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (isPermission) {
-                    _showPermissionDialog();
-                  } else {
-                    _showNoCameraDialog(
-                      error.errorDetails?.message ??
-                          'Camera could not be accessed.',
-                    );
-                  }
-                });
-
-                return _buildErrorBody(
-                  icon: isPermission
-                      ? Icons.camera_alt_outlined
-                      : Icons.no_photography_rounded,
-                  iconColor: isPermission
-                      ? const Color(0xffF57C00)
-                      : const Color(0xffC62828),
-                  title: isPermission
-                      ? 'Camera Permission Required'
-                      : 'No Camera Found',
-                  message: isPermission
-                      ? 'Please allow camera access in your device settings.'
-                      : error.errorDetails?.message ??
-                          'Camera could not be accessed on this device.',
-                );
-              },
-            ),
-
-            // Scan frame overlay
-            Center(
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  border:
-                      Border.all(color: const Color(0xff5BA84A), width: 3),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-
-            // Instructions at the bottom
-            Positioned(
-              bottom: 60,
-              left: 30,
-              right: 30,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'Align QR code within the frame to scan',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 14),
-                ),
-              ),
-            ),
-          ],
-        ),
+        body: _buildBody(),
       ),
     );
   }
 
-  void _showNoCameraDialog(String message) {
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+  Widget _buildBody() {
+    // Still probing camera — show loading
+    if (_isChecking) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.no_photography_rounded,
-                color: Color(0xffC62828), size: 24),
-            SizedBox(width: 10),
-            Text('No Camera Found'),
+            CircularProgressIndicator(color: Color(0xff5BA84A)),
+            SizedBox(height: 16),
+            Text(
+              'Checking camera...',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
           ],
         ),
-        content: Text(
-          message,
-          style: const TextStyle(
-              fontSize: 13, color: Color(0xff555555), height: 1.4),
+      );
+    }
+
+    // Camera probe failed — show error (dialog already shown above)
+    if (!_cameraOk) {
+      return _buildErrorBody();
+    }
+
+    // Camera is running — safe to render MobileScanner
+    // autoStart: false so widget won't try to start again
+    return Stack(
+      children: [
+        MobileScanner(
+          controller: _controller,
+          onDetect: _onDetect,
+          errorBuilder: (context, error) {
+            // Camera died mid-session
+            final isPermission =
+                error.errorCode == MobileScannerErrorCode.permissionDenied;
+            if (!_errorDialogShown) {
+              _errorTitle = isPermission
+                  ? 'Camera Permission Required'
+                  : 'No Camera Found';
+              _errorMessage = isPermission
+                  ? 'Please allow camera access in your device settings.'
+                  : error.errorDetails?.message ??
+                      'Camera error. Please try again.';
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => _showErrorDialog());
+            }
+            return _buildErrorBody();
+          },
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _goBack();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff2D6B21),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+
+        // Scan frame overlay
+        Center(
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              border:
+                  Border.all(color: const Color(0xff5BA84A), width: 3),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text('Go Back'),
           ),
-        ],
-      ),
+        ),
+
+        // Instructions
+        Positioned(
+          bottom: 60,
+          left: 30,
+          right: 30,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'Align QR code within the frame to scan',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildErrorBody({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String message,
-  }) {
+  Widget _buildErrorBody() {
+    final isPermission = _errorTitle == 'Camera Permission Required';
     return Center(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -282,10 +294,18 @@ class _QRScannerScreenState extends State<QRScannerScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 54, color: iconColor),
+            Icon(
+              isPermission
+                  ? Icons.camera_alt_outlined
+                  : Icons.no_photography_rounded,
+              size: 54,
+              color: isPermission
+                  ? const Color(0xffF57C00)
+                  : const Color(0xffC62828),
+            ),
             const SizedBox(height: 16),
             Text(
-              title,
+              _errorTitle,
               style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -293,7 +313,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              message,
+              _errorMessage,
               textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 13, color: Color(0xff555555), height: 1.4),

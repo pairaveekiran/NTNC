@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:ntnc/services/storage_service.dart';
@@ -9,12 +8,8 @@ import 'package:ntnc/models/permit_model.dart';
 
 class PermitService {
   static const String baseUrl = 'https://mis.ntnc.org.np/api/v1';
-  static const String corsProxy = 'https://corsproxy.io/?';
 
   String _getApiUrl(String endpoint) {
-    if (kIsWeb) {
-      return '$corsProxy$baseUrl$endpoint';
-    }
     return '$baseUrl$endpoint';
   }
 

@@ -6,6 +6,8 @@ import 'package:ntnc/screen/sp_checkin_first.dart';
 import 'package:ntnc/widget/animated_counter.dart';
 import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
+import 'package:ntnc/models/today_check_in_response.dart';
+import 'package:ntnc/services/dashboard_service.dart';
 
 class DashboardHome extends StatefulWidget {
   const DashboardHome({super.key});
@@ -15,10 +17,59 @@ class DashboardHome extends StatefulWidget {
 }
 
 class _DashboardHomeState extends State<DashboardHome> {
+  bool _isLoading = true;
+  String? _error;
+  TodayCheckInResponse? _checkInData;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData({bool forceRefresh = false}) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      if (!forceRefresh) _error = null;
+    });
+
+    try {
+      final data = await DashboardService().fetchTodayCheckIns(forceRefresh: forceRefresh);
+      if (mounted) {
+        setState(() {
+          _checkInData = data;
+          _isLoading = false;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
+        });
+        if (forceRefresh) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_error ?? 'An error occurred'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    await _fetchData(forceRefresh: true);
+  }
+
   Future<void> _startMobileScan() async {
     bool keepScanning = true;
     while (keepScanning) {
-      if (!context.mounted) break;
+      if (!mounted) break;
 
       try {
         final scannedCode = await Navigator.push<String>(
@@ -28,7 +79,7 @@ class _DashboardHomeState extends State<DashboardHome> {
           ),
         );
 
-        if (!context.mounted) break;
+        if (!mounted) break;
 
         if (scannedCode != null && scannedCode.isNotEmpty) {
           final result = await Navigator.push(
@@ -63,7 +114,7 @@ class _DashboardHomeState extends State<DashboardHome> {
         onPressed: _startMobileScan,
         // Hardware scanner path (from FAB dialog "Bar Code Scanner" option)
         onHardwareScannerPressed: () {
-          if (!context.mounted) return;
+          if (!mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -252,145 +303,85 @@ class _DashboardHomeState extends State<DashboardHome> {
 
           /// CONTENT
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  /// Section: Check-in Details
-                  const _SectionHeader(title: "Check-in Details"),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: const [
-                      Expanded(
-                        child: _StatCard(
-                          topBarColor: Color(0xff2E7D32),
-                          iconBg: Color(0xffE6F4E8),
-                          icon: Icons.check_rounded,
-                          iconColor: Color(0xff2E7D32),
-                          title: "Today's Check IN",
-                          value: 219,
-                          valueColor: Color(0xff2D6B21),
+            child: RefreshIndicator(
+              color: const Color(0xff5BA84A),
+              onRefresh: _handleRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// Section: Check-in Details
+                    const _SectionHeader(title: "Check-in Details"),
+                    const SizedBox(height: 14),
+                    if (_isLoading && _checkInData == null)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(
+                            color: Color(0xff5BA84A),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 14),
-                      Expanded(
-                        child: _StatCard(
-                          topBarColor: Color(0xffF57C00),
-                          iconBg: Color(0xffFFF2E5),
-                          icon: Icons.show_chart_rounded,
-                          iconColor: Color(0xffF57C00),
-                          title: "Today's Check OUT",
-                          value: 500,
-                          valueColor: Color(0xffF57C00),
+                      )
+                    else if (_error != null && _checkInData == null)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => _fetchData(forceRefresh: true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xff5BA84A),
+                                ),
+                                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 26),
-
-                  /// Section: Permit Issued Details
-                  const _SectionHeader(title: "Permit Issued Details"),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: const [
-                      Expanded(
-                        child: _StatCard(
-                          topBarColor: Color(0xff1976D2),
-                          iconBg: Color(0xffE3F0FB),
-                          icon: Icons.description_rounded,
-                          iconColor: Color(0xff1976D2),
-                          title: "Total Permits",
-                          value: 12000,
-                          valueColor: Color(0xff1976D2),
-                          formatWithComma: true,
-                        ),
-                      ),
-                      SizedBox(width: 14),
-                      Expanded(
-                        child: _StatCard(
-                          topBarColor: Color(0xff7B1FA2),
-                          iconBg: Color(0xffF3E5F5),
-                          icon: Icons.adjust_rounded,
-                          iconColor: Color(0xff7B1FA2),
-                          title: "Today's Permits",
-                          value: 200,
-                          valueColor: Color(0xff7B1FA2),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  /// Issue New Permit Button
-                  Container(
-                    width: double.infinity,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xff4FA044),
-                          Color(0xff2D6B21),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              topBarColor: const Color(0xff2E7D32),
+                              iconBg: const Color(0xffE6F4E8),
+                              icon: Icons.check_rounded,
+                              iconColor: const Color(0xff2E7D32),
+                              title: "Today's Check IN",
+                              value: _checkInData?.checkIns ?? 0,
+                              valueColor: const Color(0xff2D6B21),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: _StatCard(
+                              topBarColor: const Color(0xffF57C00),
+                              iconBg: const Color(0xffFFF2E5),
+                              icon: Icons.show_chart_rounded,
+                              iconColor: const Color(0xffF57C00),
+                              title: "Today's Check OUT",
+                              value: _checkInData?.checkOuts ?? 0,
+                              valueColor: const Color(0xffF57C00),
+                            ),
+                          ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xff2D6B21).withValues(alpha: 0.35),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const SinglePostCheckInFirstScreen(),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              height: 36,
-                              width: 36,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.25),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.add_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            const Text(
-                              "Issue New Permit",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 100),
-                ],
+  
+                    const SizedBox(height: 100),
+                  ],
+                ),
               ),
             ),
           ),
@@ -431,7 +422,6 @@ class _StatCard extends StatelessWidget {
   final String title;
   final int value;
   final Color valueColor;
-  final bool formatWithComma;
 
   const _StatCard({
     required this.topBarColor,
@@ -441,7 +431,6 @@ class _StatCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.valueColor,
-    this.formatWithComma = false,
   });
 
   @override
@@ -509,7 +498,7 @@ class _StatCard extends StatelessWidget {
                   child: AnimatedCounter(
                     value: value,
                     color: valueColor,
-                    formatWithComma: formatWithComma,
+                    formatWithComma: false,
                   ),
                 ),
               ],

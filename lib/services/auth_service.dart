@@ -1,20 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:ntnc/services/storage_service.dart';
 
 class AuthService {
   static const String baseUrl = 'https://mis.ntnc.org.np/api';
-  
-  // CORS proxy for web
-  static const String corsProxy = 'https://corsproxy.io/?';
 
   String _getApiUrl(String endpoint) {
-    if (kIsWeb) {
-      return '$corsProxy$baseUrl$endpoint';
-    }
+    // Note: corsproxy.io now requires an API key and blocks requests with CORS errors.
+    // We hit the URL directly. For local Flutter web development, 
+    // run Chrome with: flutter run -d chrome --web-browser-flag "--disable-web-security"
     return '$baseUrl$endpoint';
   }
 
