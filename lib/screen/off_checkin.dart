@@ -588,7 +588,7 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                               const SnackBar(
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: Color(0xffF39C12),
-                                content: Text("Camera scan is disabled. Please use Bar Code Scanner."),
+                                content: Text("Camera scan is disabled. Please use Hardware Scanner."),
                                 duration: Duration(seconds: 2),
                               ),
                             );

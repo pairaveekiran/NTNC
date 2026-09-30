@@ -9,6 +9,8 @@ import 'package:ntnc/widget/bottom_navigation.dart';
 import 'package:ntnc/models/today_check_in_response.dart';
 import 'package:ntnc/services/dashboard_service.dart';
 import 'package:ntnc/services/storage_service.dart';
+import 'package:ntnc/models/user_profile.dart';
+import 'package:ntnc/services/user_service.dart';
 
 class DashboardHome extends StatefulWidget {
   const DashboardHome({super.key});
@@ -21,6 +23,7 @@ class _DashboardHomeState extends State<DashboardHome> {
   bool _isLoading = true;
   String? _error;
   TodayCheckInResponse? _checkInData;
+  UserProfile? _profile;
   String? _scannerType;
 
   @override
@@ -66,9 +69,15 @@ class _DashboardHomeState extends State<DashboardHome> {
 
     try {
       final data = await DashboardService().fetchTodayCheckIns(forceRefresh: forceRefresh);
+      UserProfile? profile = _profile;
+      if (profile == null || forceRefresh) {
+        profile = await UserService().getProfile();
+      }
+      
       if (mounted) {
         setState(() {
           _checkInData = data;
+          _profile = profile;
           _isLoading = false;
           _error = null;
         });
@@ -288,10 +297,10 @@ class _DashboardHomeState extends State<DashboardHome> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Column(
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               "Dashboard",
                               style: TextStyle(
                                 fontSize: 34,
@@ -300,10 +309,10 @@ class _DashboardHomeState extends State<DashboardHome> {
                                 height: 1.1,
                               ),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
-                              "Welcome, User",
-                              style: TextStyle(
+                              "Welcome, ${_profile?.name ?? 'User'}",
+                              style: const TextStyle(
                                 fontSize: 18,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w400,

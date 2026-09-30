@@ -35,7 +35,7 @@ class CustomBottomNavigation extends StatelessWidget {
         children: [
           _BottomNavItem(
             icon: scannerType == 'hardware' ? Icons.qr_code_scanner_rounded : Icons.document_scanner_rounded,
-            label: scannerType == 'hardware' ? "Bar Code Scanner" : "Mobile Scanner",
+            label: scannerType == 'hardware' ? "Hardware Scanner" : "Mobile Scanner",
             onTap: scannerType == 'hardware' ? onHardwareScannerPressed : onScannerPressed,
             isActive: isScannerActive,
           ),
@@ -133,9 +133,9 @@ Future<void> showScannerOptionsDialog(
                 ),
                 const SizedBox(height: 14),
                 _ScannerOptionCard(
-                  icon: Icons.document_scanner_rounded,
-                  title: 'Bar Code Scanner',
-                  subtitle: 'Use an external connected scanner device',
+                  icon: Icons.qr_code_scanner_rounded,
+                  title: 'Hardware Scanner',
+                  subtitle: 'Use an external connected hardware scanner device',
                   isSelected: currentType == 'hardware',
                   onTap: () {
                     onSelected('hardware');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRScannerScreen extends StatefulWidget {
@@ -10,10 +11,15 @@ class QRScannerScreen extends StatefulWidget {
 
 class _QRScannerScreenState extends State<QRScannerScreen>
     with WidgetsBindingObserver {
-  
+
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
+
+  // ── Hidden text field for hardware scanner fallback ──────────────────
+  final TextEditingController _hwController = TextEditingController();
+  final FocusNode _hwFocusNode = FocusNode();
+  // ─────────────────────────────────────────────────────────────────────
 
   bool _isScanned = false;
 
@@ -21,11 +27,15 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Keep the hidden field focused so HID keyboard input is captured.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refocusHw());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _hwController.dispose();
+    _hwFocusNode.dispose();
     try { _controller.dispose(); } catch (_) {}
     super.dispose();
   }
@@ -36,19 +46,42 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       try { _controller.stop(); } catch (_) {}
     } else if (state == AppLifecycleState.resumed) {
       try { _controller.start(); } catch (_) {}
+      _refocusHw();
     }
   }
 
+  void _refocusHw() {
+    if (!mounted) return;
+    _hwFocusNode.requestFocus();
+    // Hide the software keyboard — we only want hardware scanner input.
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
+
+  // ── Called when camera detects a QR/barcode ──────────────────────────
   void _onDetect(BarcodeCapture capture) {
     if (_isScanned || !mounted) return;
     final barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
       final code = barcodes.first.rawValue;
       if (code != null && code.isNotEmpty) {
-        setState(() => _isScanned = true);
-        Navigator.pop(context, code);
+        _returnCode(code);
       }
     }
+  }
+
+  // ── Called when hardware scanner sends Enter (submit) ─────────────────
+  void _onHwSubmitted(String raw) {
+    final code = raw.trim();
+    if (code.isEmpty || _isScanned) return;
+    _hwController.clear();
+    _returnCode(code);
+  }
+
+  // ── Common exit: return code to caller ───────────────────────────────
+  void _returnCode(String code) {
+    if (_isScanned || !mounted) return;
+    setState(() => _isScanned = true);
+    Navigator.pop(context, code);
   }
 
   void _goBack() {
@@ -96,10 +129,11 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   Widget _buildBody() {
     return Stack(
       children: [
+        // ── Camera view ──────────────────────────────────────────────────
         MobileScanner(
           controller: _controller,
           onDetect: _onDetect,
-          errorBuilder: (context, error, child) {
+          errorBuilder: (context, error) {
             final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
             return Center(
               child: Container(
@@ -170,20 +204,35 @@ class _QRScannerScreenState extends State<QRScannerScreen>
           },
         ),
 
-        // Scan frame overlay
+        // ── Hidden field: silently captures HID/hardware scanner input ───
+        Offstage(
+          offstage: true,
+          child: TextField(
+            controller: _hwController,
+            focusNode: _hwFocusNode,
+            autofocus: false,
+            keyboardType: TextInputType.none,
+            textInputAction: TextInputAction.go,
+            enableSuggestions: false,
+            autocorrect: false,
+            showCursor: false,
+            onSubmitted: _onHwSubmitted,
+          ),
+        ),
+
+        // ── Scan frame overlay ───────────────────────────────────────────
         Center(
           child: Container(
             width: 250,
             height: 250,
             decoration: BoxDecoration(
-              border:
-                  Border.all(color: const Color(0xff5BA84A), width: 3),
+              border: Border.all(color: const Color(0xff5BA84A), width: 3),
               borderRadius: BorderRadius.circular(16),
             ),
           ),
         ),
 
-        // Instructions
+        // ── Instructions ─────────────────────────────────────────────────
         Positioned(
           bottom: 60,
           left: 30,
@@ -195,7 +244,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              'Align QR code within the frame to scan',
+              'Align QR code within the frame to scan\nor use hardware scanner',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
