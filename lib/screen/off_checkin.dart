@@ -61,12 +61,12 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
   static const primaryGreen = Color(0xff2D6B21);
   static const lightGreen = Color(0xff5BA84A);
 
-  /// ✅ ADDED: SharedPreferences key
   static const String _storageKey = 'cached_scanned_permits';
 
   String? scannedCode;
   String? selectedAction; // "checkin" or "checkout"
   DateTime? _scannedAt; // timestamp captured the moment QR is scanned
+  String? _scannerType;
 
   /// ✅ Cached list of scanned permit records
   final List<ScannedPermitRecord> _scannedPermits = [];
@@ -78,7 +78,17 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
   @override
   void initState() {
     super.initState();
+    _loadScannerPreference();
     _loadScannedPermits(); // ✅ load cached records on screen open
+  }
+
+  Future<void> _loadScannerPreference() async {
+    final type = await StorageService.getScannerType();
+    if (mounted) {
+      setState(() {
+        _scannerType = type;
+      });
+    }
   }
 
   /// ─────────────────────────────────────────────
@@ -567,56 +577,72 @@ class _OfflineScanScreenState extends State<OfflineScanScreen> {
                   const SizedBox(height: 14),
 
                   /// 📷 Scan QR Code Card
-                  _buildCard(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: _openScanner,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 50,
-                              width: 50,
-                              decoration: BoxDecoration(
-                                color: const Color(0xffE6F4E8),
-                                borderRadius: BorderRadius.circular(12),
+                  Opacity(
+                    opacity: _scannerType == 'hardware' ? 0.4 : 1.0,
+                    child: _buildCard(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          if (_scannerType == 'hardware') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: Color(0xffF39C12),
+                                content: Text("Camera scan is disabled. Please use Bar Code Scanner."),
+                                duration: Duration(seconds: 2),
                               ),
-                              child: const Icon(
-                                Icons.qr_code_2_rounded,
-                                color: primaryGreen,
-                                size: 30,
+                            );
+                            return;
+                          }
+                          _openScanner();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              Container(
+                                height: 50,
+                                width: 50,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffE6F4E8),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.qr_code_2_rounded,
+                                  color: primaryGreen,
+                                  size: 30,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 14),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Scan QR Code",
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w700,
-                                      color: primaryGreen,
+                              const SizedBox(width: 14),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Scan QR Code",
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                        color: primaryGreen,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    "Tap to open camera scanner",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xff666666),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      "Tap to open camera scanner",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xff666666),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.grey,
-                            ),
-                          ],
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.grey,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

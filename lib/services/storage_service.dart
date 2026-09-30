@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class StorageService {
   static const String _tokenKey = 'access_token';
   static const String _userEmailKey = 'user_email';
+  static const String _scannerTypeKey = 'scanner_type';
 
   // Store authentication token
   static Future<bool> saveToken(String token) async {
@@ -46,6 +47,28 @@ class StorageService {
       return prefs.getString(_userEmailKey);
     } catch (e) {
       debugPrint('Error getting email: $e');
+      return null;
+    }
+  }
+
+  // Store scanner type
+  static Future<bool> saveScannerType(String type) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setString(_scannerTypeKey, type);
+    } catch (e) {
+      debugPrint('Error saving scanner type: $e');
+      return false;
+    }
+  }
+
+  // Retrieve scanner type
+  static Future<String?> getScannerType() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_scannerTypeKey);
+    } catch (e) {
+      debugPrint('Error getting scanner type: $e');
       return null;
     }
   }

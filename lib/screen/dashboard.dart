@@ -8,6 +8,7 @@ import 'package:ntnc/widget/app_drawer.dart';
 import 'package:ntnc/widget/bottom_navigation.dart';
 import 'package:ntnc/models/today_check_in_response.dart';
 import 'package:ntnc/services/dashboard_service.dart';
+import 'package:ntnc/services/storage_service.dart';
 
 class DashboardHome extends StatefulWidget {
   const DashboardHome({super.key});
@@ -20,11 +21,40 @@ class _DashboardHomeState extends State<DashboardHome> {
   bool _isLoading = true;
   String? _error;
   TodayCheckInResponse? _checkInData;
+  String? _scannerType;
 
   @override
   void initState() {
     super.initState();
+    _checkScannerPreference();
     _fetchData();
+  }
+
+  Future<void> _checkScannerPreference() async {
+    final type = await StorageService.getScannerType();
+    if (!mounted) return;
+    
+    if (type == null) {
+      // Force selection on first launch
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showScannerOptionsDialog(
+          context,
+          dismissible: false,
+          onSelected: (selectedType) async {
+            await StorageService.saveScannerType(selectedType);
+            if (mounted) {
+              setState(() {
+                _scannerType = selectedType;
+              });
+            }
+          },
+        );
+      });
+    } else {
+      setState(() {
+        _scannerType = type;
+      });
+    }
   }
 
   Future<void> _fetchData({bool forceRefresh = false}) async {
@@ -106,13 +136,20 @@ class _DashboardHomeState extends State<DashboardHome> {
       extendBody: true,
 
       /// ✅ DRAWER (Menu)
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(
+        onScannerPreferenceChanged: (newType) {
+          setState(() {
+            _scannerType = newType;
+          });
+        },
+      ),
 
       /// ✅ CENTER SCAN BUTTON
       floatingActionButton: CustomScanFAB(
+        scannerType: _scannerType,
         // Camera QR path
         onPressed: _startMobileScan,
-        // Hardware scanner path (from FAB dialog "Bar Code Scanner" option)
+        // Hardware scanner path
         onHardwareScannerPressed: () {
           if (!mounted) return;
           Navigator.push(
@@ -127,7 +164,17 @@ class _DashboardHomeState extends State<DashboardHome> {
 
       /// ✅ BOTTOM NAVIGATION BAR
       bottomNavigationBar: CustomBottomNavigation(
+        scannerType: _scannerType,
         onScannerPressed: _startMobileScan,
+        onHardwareScannerPressed: () {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const HardwareScannerScreen(),
+            ),
+          );
+        },
         onCheckInPressed: () {
           Navigator.push(
             context,

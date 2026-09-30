@@ -5,16 +5,20 @@ import 'package:flutter/material.dart';
 /// ─────────────────────────────────────────────
 class CustomBottomNavigation extends StatelessWidget {
   final VoidCallback? onScannerPressed;
+  final VoidCallback? onHardwareScannerPressed;
   final VoidCallback? onCheckInPressed;
   final bool isScannerActive;
   final bool isCheckInActive;
+  final String? scannerType;
 
   const CustomBottomNavigation({
     super.key,
     this.onScannerPressed,
+    this.onHardwareScannerPressed,
     this.onCheckInPressed,
     this.isScannerActive = false,
     this.isCheckInActive = false,
+    this.scannerType,
   });
 
   @override
@@ -30,9 +34,9 @@ class CustomBottomNavigation extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _BottomNavItem(
-            icon: Icons.document_scanner_rounded,
-            label: "Mobile Scanner",
-            onTap: onScannerPressed,
+            icon: scannerType == 'hardware' ? Icons.qr_code_scanner_rounded : Icons.document_scanner_rounded,
+            label: scannerType == 'hardware' ? "Bar Code Scanner" : "Mobile Scanner",
+            onTap: scannerType == 'hardware' ? onHardwareScannerPressed : onScannerPressed,
             isActive: isScannerActive,
           ),
           const SizedBox(width: 60), // Space for FAB
@@ -49,24 +53,21 @@ class CustomBottomNavigation extends StatelessWidget {
 }
 
 /// ─────────────────────────────────────────────
-/// Floating Center Scan Button (FAB)
+/// Extracted Dialog Logic for Scanner Selection
 /// ─────────────────────────────────────────────
-class CustomScanFAB extends StatelessWidget {
-  final VoidCallback? onPressed;
-  final VoidCallback? onHardwareScannerPressed;
-
-  const CustomScanFAB({
-    super.key,
-    this.onPressed,
-    this.onHardwareScannerPressed,
-  });
-
-  void _showScannerOptions(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismissing by tapping outside
-      builder: (BuildContext context) {
-        return Dialog(
+Future<void> showScannerOptionsDialog(
+  BuildContext context, {
+  required Function(String) onSelected,
+  bool dismissible = false,
+  String? currentType,
+}) {
+  return showDialog(
+    context: context,
+    barrierDismissible: dismissible,
+    builder: (BuildContext context) {
+      return PopScope(
+        canPop: dismissible,
+        child: Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -78,7 +79,6 @@ class CustomScanFAB extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// Header with Title and Close Button
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -92,22 +92,23 @@ class CustomScanFAB extends StatelessWidget {
                         ),
                       ),
                     ),
-                    InkWell(
-                      onTap: () => Navigator.pop(context),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 20,
-                          color: Color(0xff555555),
+                    if (dismissible)
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 20,
+                            color: Color(0xff555555),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -120,40 +121,67 @@ class CustomScanFAB extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                /// Option 1: Mobile Scanner
                 _ScannerOptionCard(
                   icon: Icons.smartphone_rounded,
                   title: 'Mobile / Tablet Scanner',
                   subtitle: 'Use your device camera to scan QR codes',
+                  isSelected: currentType == 'mobile',
                   onTap: () {
-                    Navigator.pop(context); // Close dialog
-                    if (onPressed != null) {
-                      onPressed!();
-                    }
+                    onSelected('mobile');
+                    Navigator.pop(context);
                   },
                 ),
-                
                 const SizedBox(height: 14),
-
-                /// Option 2: Bar Code Scanner
                 _ScannerOptionCard(
                   icon: Icons.document_scanner_rounded,
                   title: 'Bar Code Scanner',
                   subtitle: 'Use an external connected scanner device',
+                  isSelected: currentType == 'hardware',
                   onTap: () {
-                    Navigator.pop(context); // Close dialog
-                    if (onHardwareScannerPressed != null) {
-                      onHardwareScannerPressed!();
-                    }
+                    onSelected('hardware');
+                    Navigator.pop(context);
                   },
                 ),
               ],
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
+}
+
+/// ─────────────────────────────────────────────
+/// Floating Center Scan Button (FAB)
+/// ─────────────────────────────────────────────
+class CustomScanFAB extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final VoidCallback? onHardwareScannerPressed;
+  final String? scannerType;
+
+  const CustomScanFAB({
+    super.key,
+    this.onPressed,
+    this.onHardwareScannerPressed,
+    this.scannerType,
+  });
+
+  void _handlePress(BuildContext context) {
+    if (scannerType == 'hardware') {
+      if (onHardwareScannerPressed != null) onHardwareScannerPressed!();
+    } else if (scannerType == 'mobile') {
+      if (onPressed != null) onPressed!();
+    } else {
+      showScannerOptionsDialog(
+        context,
+        dismissible: true,
+        currentType: scannerType,
+        onSelected: (type) {
+          if (type == 'hardware' && onHardwareScannerPressed != null) onHardwareScannerPressed!();
+          if (type == 'mobile' && onPressed != null) onPressed!();
+        },
+      );
+    }
   }
 
   @override
@@ -167,7 +195,7 @@ class CustomScanFAB extends StatelessWidget {
         shape: const CircleBorder(
           side: BorderSide(color: Color(0xff2D6B21), width: 2),
         ),
-        onPressed: () => _showScannerOptions(context),
+        onPressed: () => _handlePress(context),
         child: const Icon(
           Icons.qr_code_scanner_rounded,
           color: Color(0xff2D6B21),
@@ -234,21 +262,26 @@ class _ScannerOptionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool isSelected;
 
   const _ScannerOptionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.isSelected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xffF9FAF9),
+        color: isSelected ? const Color(0xffF0F9F0) : const Color(0xffF9FAF9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xffE6F4E8), width: 1.5),
+        border: Border.all(
+          color: isSelected ? const Color(0xff2D6B21) : const Color(0xffE6F4E8), 
+          width: isSelected ? 2.0 : 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -298,10 +331,10 @@ class _ScannerOptionCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: Color(0xffBDBDBD),
+                Icon(
+                  isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 24,
+                  color: isSelected ? const Color(0xff2D6B21) : const Color(0xffBDBDBD),
                 ),
               ],
             ),

@@ -413,8 +413,22 @@ class _SinglePostCheckInFirstScreenState
                                 );
                               },
                               borderRadius: BorderRadius.circular(4),
-                              child: Text(
-                                fullName,
+                              child: Text.rich(
+                                TextSpan(
+                                  text: fullName,
+                                  children: [
+                                    if (p.passport.isNotEmpty)
+                                      TextSpan(
+                                        text: ' (${p.passport})',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: primaryGreen,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w800,
@@ -470,10 +484,6 @@ class _SinglePostCheckInFirstScreenState
             const SizedBox(height: 10),
 
             // ── Detail rows ──────────────────────────
-            if (p.passport.isNotEmpty) ...[
-              _infoRow('Passport No', p.passport),
-              const SizedBox(height: 8),
-            ],
             _infoRow('Receipt No', p.receipt),
             const SizedBox(height: 8),
             _infoRow('Permit Code', p.code),

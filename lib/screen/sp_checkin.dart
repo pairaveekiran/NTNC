@@ -367,8 +367,21 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         Expanded(
-                                          child: Text(
-                                            "${_permit?.firstName ?? ''} ${_permit?.midName ?? ''} ${_permit?.lastName ?? ''}".trim().replaceAll(RegExp(r'\s+'), ' '),
+                                          child: Text.rich(
+                                            TextSpan(
+                                              text: "${_permit?.firstName ?? ''} ${_permit?.midName ?? ''} ${_permit?.lastName ?? ''}".trim().replaceAll(RegExp(r'\s+'), ' '),
+                                              children: [
+                                                if (_permit != null && _permit!.passport.isNotEmpty)
+                                                  TextSpan(
+                                                    text: ' (${_permit!.passport})',
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Color(0xff555555),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                             style: const TextStyle(
                                               fontSize: 19,
                                               fontWeight: FontWeight.w800,
@@ -413,8 +426,6 @@ class _SinglePostCheckInScreenState extends State<SinglePostCheckInScreen> {
                                       color: Color(0xffE0E0E0),
                                     ),
                                     const SizedBox(height: 8),
-                                    _infoRow("Passport No", _permit?.passport ?? ''),
-                                    const SizedBox(height: 6),
                                     _infoRow("Receipt No", _permit?.receipt ?? ''),
                                     const SizedBox(height: 6),
                                     _infoRow("Permit Code", _permit?.code ?? ''),

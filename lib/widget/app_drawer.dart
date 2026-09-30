@@ -3,10 +3,17 @@ import 'package:ntnc/screen/login.dart';
 import 'package:ntnc/screen/userprofile.dart' as screen;
 import 'package:ntnc/services/auth_service.dart';
 import 'package:ntnc/services/user_service.dart';
+import 'package:ntnc/services/storage_service.dart';
+import 'package:ntnc/widget/bottom_navigation.dart';
 import 'package:ntnc/models/user_profile.dart';
 
 class AppDrawer extends StatefulWidget {
-  const AppDrawer({super.key});
+  final Function(String)? onScannerPreferenceChanged;
+
+  const AppDrawer({
+    super.key,
+    this.onScannerPreferenceChanged,
+  });
 
   @override
   State<AppDrawer> createState() => _AppDrawerState();
@@ -357,13 +364,20 @@ class _AppDrawerState extends State<AppDrawer> {
         color: const Color(0xffF57C00),
         bgColor: const Color(0xffFFF2E5),
       ),
+      _MenuItem(
+        icon: Icons.qr_code_scanner_rounded,
+        label: "Scanner Preference",
+        subtitle: "Change default scanner method",
+        color: const Color(0xff8E24AA),
+        bgColor: const Color(0xffF3E5F5),
+      ),
     ];
   }
 
   /// ─────────────────────────────────────────────
   /// Handle Menu Item Taps
   /// ─────────────────────────────────────────────
-  void _handleMenuTap(BuildContext context, String label) {
+  void _handleMenuTap(BuildContext context, String label) async {
     if (_profile == null) return;
 
     final genderLabel = _profile!.gender == 'M' ? 'Male' : 'Female';
@@ -402,6 +416,36 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
           );
         }
+        break;
+
+      case "Scanner Preference":
+        final currentType = await StorageService.getScannerType();
+        if (!context.mounted) return;
+        showScannerOptionsDialog(
+          context,
+          dismissible: true,
+          currentType: currentType,
+          onSelected: (selectedType) async {
+            await StorageService.saveScannerType(selectedType);
+            if (widget.onScannerPreferenceChanged != null) {
+              widget.onScannerPreferenceChanged!(selectedType);
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: primaryGreen,
+                  content: Text(
+                    selectedType == 'hardware'
+                        ? "Hardware Scanner selected"
+                        : "Mobile Scanner selected",
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        );
         break;
     }
   }
