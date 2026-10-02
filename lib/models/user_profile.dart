@@ -4,6 +4,7 @@ class UserProfile {
   final String gender;
   final String status;
   final List<UserRole> roles;
+  final String? organization;
 
   UserProfile({
     required this.name,
@@ -11,15 +12,19 @@ class UserProfile {
     required this.gender,
     required this.status,
     required this.roles,
+    this.organization,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    final profileData = json.containsKey('profile') ? json['profile'] : json;
+    
     return UserProfile(
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      gender: json['gender'] ?? '',
-      status: json['status'] ?? '',
-      roles: (json['roles'] as List<dynamic>?)
+      name: profileData['name'] ?? '',
+      email: profileData['email'] ?? '',
+      gender: profileData['gender'] ?? '',
+      status: profileData['status']?.toString() ?? '',
+      organization: json['organization']?.toString() ?? '',
+      roles: (profileData['roles'] as List<dynamic>?)
               ?.map((role) => UserRole.fromJson(role))
               .toList() ??
           [],

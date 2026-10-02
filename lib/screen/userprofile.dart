@@ -411,6 +411,32 @@ class _UserProfileState extends State<UserProfile> {
                               onTap: () {},
                             ),
                           buildDivider(),
+                          if (_profile != null && _profile!.organization != null && _profile!.organization!.isNotEmpty)
+                            buildMenuItem(
+                              icon: Icons.business_rounded,
+                              title: "Organization",
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffE0F2F1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _profile!.organization!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xff00796B),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              onTap: () {},
+                            ),
+                          if (_profile != null && _profile!.organization != null && _profile!.organization!.isNotEmpty)
+                            buildDivider(),
                           buildMenuItem(
                             icon: Icons.logout_rounded,
                             title: "Sign Out",
@@ -496,27 +522,45 @@ class _UserProfileState extends State<UserProfile> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
-        title: Column(
+        titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        title: Stack(
           children: [
-            Container(
-              height: 60,
-              width: 60,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.logout_rounded,
-                color: Colors.red,
-                size: 30,
+            Align(
+              alignment: Alignment.topRight,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Color(0xff999999),
+                  size: 24,
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            const Text(
-              "Confirm Logout",
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    height: 60,
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: Colors.red,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Confirm Logout",
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
