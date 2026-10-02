@@ -301,7 +301,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xff162912),
+                      color: Color(0xffA8181D),
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -311,7 +311,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xff2D6B21),
+                      color: Color(0xffA8181D),
                     ),
                   ),
 
@@ -319,7 +319,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   /// Tagline
                   const Text(
-                    "Conserving Nature. Preserving Life.",
+                    "Preserving the Natural Heritage in Nepal",
                     style: TextStyle(
                       color: Color(0xff5A5F5A),
                       fontSize: 14,

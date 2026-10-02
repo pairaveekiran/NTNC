@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:ntnc/services/storage_service.dart';
+import 'package:ntnc/services/user_service.dart';
 
 class AuthService {
   static const String baseUrl = 'https://mis.ntnc.org.np/api';
@@ -112,6 +113,7 @@ class AuthService {
   Future<bool> logout() async {
     try {
       await StorageService.clearAll();
+      UserService.clearCache();
       debugPrint('User logged out successfully');
       return true;
     } catch (e) {
